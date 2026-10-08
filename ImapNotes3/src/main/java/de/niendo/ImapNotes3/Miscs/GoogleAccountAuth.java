@@ -29,6 +29,8 @@ public final class GoogleAccountAuth {
         if (!supportedAccountType(type) || (MicroGConsent.RE_ACCOUNT_TYPE.equals(type)
                 && MicroGConsent.packageForAccountType(context, type) == null))
             throw new IOException("Unsupported Google authenticator");
+        // Provider metadata only; never log account identifiers or returned credentials.
+        android.util.Log.i("IN_GoogleAuth", "Using account type: " + type);
     }
 
     public static void authorize(Activity activity, String email, String accountType, int consentRequestCode, Runnable success,
@@ -111,6 +113,7 @@ public final class GoogleAccountAuth {
         switch (GoogleAuthError.classify(error)) {
             case REGISTRATION: return context.getString(de.niendo.ImapNotes3.R.string.google_auth_not_registered);
             case NETWORK: return context.getString(de.niendo.ImapNotes3.R.string.google_auth_network_error);
+            case SERVICE_UNAVAILABLE: return context.getString(de.niendo.ImapNotes3.R.string.google_auth_service_unavailable);
             case UNSUPPORTED_PROVIDER: return context.getString(de.niendo.ImapNotes3.R.string.google_auth_unsupported_provider);
             default: return context.getString(de.niendo.ImapNotes3.R.string.google_auth_required);
         }

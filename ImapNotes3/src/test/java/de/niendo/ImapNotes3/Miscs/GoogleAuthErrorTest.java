@@ -27,4 +27,8 @@ public class GoogleAuthErrorTest {
     @Test public void emptyFailureNeedsConsent() {
         assertEquals(GoogleAuthError.Kind.CONSENT, GoogleAuthError.classify(new Exception()));
     }
+    @Test public void blockedAuthenticatorDoesNotAskToAddTheExistingAccountAgain() {
+        assertEquals(GoogleAuthError.Kind.SERVICE_UNAVAILABLE, GoogleAuthError.classify(
+                new IOException("Token request failed", new Exception("bind failure"))));
+    }
 }

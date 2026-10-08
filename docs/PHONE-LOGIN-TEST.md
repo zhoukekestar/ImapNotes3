@@ -6,6 +6,8 @@
 
 设备同时安装 Google Play 服务和 Morphe MicroG RE 7.1.1。MicroG RE 的包名为 `app.revanced.android.gms`，账号类型为 `app.revanced`。原应用仅查询和请求 `com.google`，因此账号选择与登录没有使用已安装的 MicroG RE。
 
+真机复测首次请求 MicroG RE 时，`AutoStartManagerService` 明确记录 `MIUILOG- Reject service`，AccountManager 对 `app.revanced` 返回 `bind failure`。小米系统中的 MicroG RE 自启动开关关闭，认证服务无法启动。开启自启动并重启 MicroG RE 后，账号保存与 IMAP 同步成功。无需更换 MicroG RE、停用 Google Play 服务或重新添加 Google 账号。
+
 日志还记录到 `AccountConfigurationActivity.showGoogleError` 的 BadTokenException：异步认证错误回调返回时，页面已关闭，但仍尝试创建对话框。
 
 ## 修复
@@ -14,11 +16,17 @@
 
 Morphe MicroG RE 7.1.1 签名 SHA-256：`0b6c9515afb195fac59601696ba0a7907a0b217ccf720b43148427ccf64343e7`。从 MorpheApp 官方 GitHub 7.1.1 发布下载 APK，核对发布 SHA-256 并提取证书，与真机安装 APK 一致；还核对 AccountManager 注册的认证器包名。
 
-认证回调、IMAP 登录回调与弹窗入口都检查页面是否已关闭；保存 Google 登录开关与账号类型以支持页面重建。错误分类不输出原始账号响应或令牌。
+认证回调、IMAP 登录回调与弹窗入口都检查页面是否已关闭；保存 Google 登录开关与账号类型以支持页面重建。错误分类不输出原始账号响应或令牌；认证服务启动失败会提示检查后台运行和自启动，而不是要求再次添加已有账号。诊断日志只记录认证器账号类型，不记录邮箱或令牌。
 
 ## 当前验证
 
-32 项 JVM 单元测试通过，lint 无错误。模拟器回归与原签名真机覆盖安装测试进行中，结果完成后补充。真机用户笔记、Google Play 服务和 MicroG RE 安装均保留。
+33 项 JVM 单元测试通过，lint 无错误。
+
+- Android 15 / API 35 标准 microG 模拟器：7 项登录集成检查通过，包括已保存账号不存 OAuth 密码、缓存令牌、IMAP 登录、失效后的令牌刷新与再次 IMAP 登录、列表启动、关闭设置页后的回调保护。
+- Android 16 / API 36 真机：原发布签名 release 覆盖安装成功；通过账号选择器选择 MicroG RE 的 `app.revanced` 账号并保存成功。
+- 开启 MicroG RE 自启动并重启服务后，Gmail Notes 的 6 条笔记下载完成，页面显示“已同步”。强制停止并重新启动 ImapNotes3，再次下拉同步成功，6 条笔记仍可见。
+
+真机用户笔记、Google Play 服务和 MicroG RE 7.1.1 安装均保留。未清除应用或 Google 账号数据。
 
 ## 复测
 
