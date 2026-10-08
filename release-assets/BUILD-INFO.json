@@ -1,0 +1,56 @@
+{
+  "commit": "e13ac82de1e013893bfd3848cc3010837ef5c86b",
+  "tag": "v1.4.8-microg.2",
+  "version": "1.4.8-microg.2",
+  "versionCode": 10409,
+  "package": "io.github.zhoukekestar.imapnotes3",
+  "minAndroid": "7.1 (API 25)",
+  "built_at_utc": "2026-10-08T12:45:09.088650+00:00",
+  "commands": [
+    "testDebugUnitTest",
+    "lintDebug",
+    "assembleRelease"
+  ],
+  "tests": [
+    {
+      "name": "de.niendo.ImapNotes3.Miscs.NoteMimeTest",
+      "tests": "16",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    },
+    {
+      "name": "de.niendo.ImapNotes3.Sync.UploadTransactionTest",
+      "tests": "10",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    }
+  ],
+  "lint": {
+    "Warning": 345
+  },
+  "certificate_sha256": "bbd6b00902f05f23cb16e8ef768d86c913fcf31fcb22a79ece65d758e47c1357",
+  "verified": [
+    "26 JVM tests passed with no skipped tests",
+    "lint has no errors",
+    "signed release build",
+    "APK v2 signature",
+    "package",
+    "versionName",
+    "versionCode",
+    "non-debuggable",
+    "same signing certificate as v1.4.8-microg.1"
+  ],
+  "device_validation_reported_by_requester": {
+    "environment": "Android 15 / API 35 with official microG 0.3.17",
+    "passed": [
+      "6 Google login checks",
+      "real Gmail Notes create/edit/upload/download",
+      "repeat synchronization without duplicates",
+      "UI save",
+      "light/dark theme, large fonts and empty search"
+    ]
+  },
+  "device_validation_performed_in_this_cloud_build": false
+}
