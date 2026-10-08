@@ -1,0 +1,58 @@
+{
+  "commit": "8cb22ca27f258a63a3dd350703b4fe4b624994f1",
+  "version": "1.4.8-microg.3",
+  "versionCode": 10410,
+  "package": "io.github.zhoukekestar.imapnotes3",
+  "minAndroid": "7.1 (API 25)",
+  "purpose": "Android 16 phone login retest with Morphe MicroG RE 7.1.1",
+  "delivery_branch": "codex/phone-test/microg.3",
+  "built_at_utc": "2026-10-08T13:26:39.887492+00:00",
+  "commands": [
+    "testDebugUnitTest",
+    "lintDebug",
+    "assembleRelease"
+  ],
+  "tests": [
+    {
+      "name": "de.niendo.ImapNotes3.Miscs.GoogleAuthErrorTest",
+      "tests": "6",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    },
+    {
+      "name": "de.niendo.ImapNotes3.Miscs.NoteMimeTest",
+      "tests": "16",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    },
+    {
+      "name": "de.niendo.ImapNotes3.Sync.UploadTransactionTest",
+      "tests": "10",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    }
+  ],
+  "lint": {
+    "Warning": 347
+  },
+  "apk_sha256": "13625f8c1df8eb0bb46670370b7a7461393b83e0b20c6ffbb7619ac3f9bc2f9d",
+  "certificate_sha256": "bbd6b00902f05f23cb16e8ef768d86c913fcf31fcb22a79ece65d758e47c1357",
+  "verified": [
+    "32 JVM tests passed with no skipped tests",
+    "lint has no errors",
+    "signed application release build",
+    "APK v2 signature",
+    "package",
+    "versionName",
+    "versionCode",
+    "non-debuggable",
+    "original release certificate"
+  ],
+  "phone_login_retest": "pending",
+  "instrumentation_apk_built_or_delivered": false,
+  "github_release_created": false,
+  "version_tag_created": false
+}
