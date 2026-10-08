@@ -1,0 +1,34 @@
+{
+  "commit": "1895a8ebf79b489f54bb2ceae1b0b685dc830429",
+  "version": "1.4.8-microg.1",
+  "tests": [
+    {
+      "name": "de.niendo.ImapNotes3.Miscs.NoteMimeTest",
+      "tests": "10",
+      "failures": "0",
+      "errors": "0"
+    },
+    {
+      "name": "de.niendo.ImapNotes3.Sync.UploadTransactionTest",
+      "tests": "10",
+      "failures": "0",
+      "errors": "0"
+    }
+  ],
+  "lint": {
+    "Warning": 323
+  },
+  "verified": [
+    "debug build",
+    "signed release build",
+    "APK v2 signature",
+    "package",
+    "version",
+    "non-debuggable",
+    "missing signing configuration rejected"
+  ],
+  "notDeviceTested": [
+    "microG consent/Gmail sign-in",
+    "Apple Notes round trip"
+  ]
+}
