@@ -1,5 +1,5 @@
 <account-authenticator xmlns:android="http://schemas.android.com/apk/res/android"
-    android:accountType="de.niendo.ImapNotes3"
+    android:accountType="io.github.zhoukekestar.imapnotes3"
     android:icon="@mipmap/ic_launcher"
     android:label="@string/app_name"
     android:smallIcon="@mipmap/ic_launcher" />

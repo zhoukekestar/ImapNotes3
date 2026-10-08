@@ -75,6 +75,11 @@ public class UpdateThread extends AsyncTask<Object, Void, Boolean> {
     private final String noteBody;
     private final String bgColor;
     private String ErrorMsg;
+    private File originalSnapshot;
+    public UpdateThread withOriginalSnapshot(File snapshot) {
+        originalSnapshot = snapshot;
+        return this;
+    }
 
     private final String accountName;
     private final Action action;
@@ -150,6 +155,16 @@ typesafe.  Make them final to prevent accidental reuse.
 
     @Override
     protected Boolean doInBackground(Object... stuffs) {
+        synchronized (AccountLocks.forAccount(accountName)) {
+            try { return performUpdate(); }
+            catch (Exception e) {
+                ErrorMsg = "Local save failed";
+                return false;
+            }
+        }
+    }
+
+    private Boolean performUpdate() {
         ErrorMsg = "";
         Log.d(TAG, "doInBackground");
             // Do we have a note to remove?
@@ -157,8 +172,8 @@ typesafe.  Make them final to prevent accidental reuse.
                 Log.v(TAG, "Received request to delete message #" + suid);
                 // Here we delete the note from the local notes list
                 indexToDelete = getIndexByNumber(suid);
-                storedNotes.DeleteANote(suid, accountName);
                 MoveMailToDeleted(suid);
+                storedNotes.DeleteANote(suid, accountName);
                 return true;
             }
 
@@ -177,7 +192,16 @@ typesafe.  Make them final to prevent accidental reuse.
                 String stringDate = sdf.format(date);
                 currentNote = new OneNote(title, stringDate, "", accountName, bgColor, OneNote.SAVE_STATE_SAVING);
                 // Add note to database
-                if (!suid.startsWith("-")) {
+                boolean samePending = false;
+                if (suid.startsWith("-") && originalSnapshot != null) {
+                    try {
+                        Message latest = SyncUtils.ReadMailFromFileRootAndNew(suid, ImapNotesAccount.GetRootDirAccount());
+                        Message original = SyncUtils.ReadMailFromFile(originalSnapshot);
+                        samePending = latest != null && original != null && java.util.Arrays.equals(
+                                latest.getHeader(NoteMime.UPLOAD_ID), original.getHeader(NoteMime.UPLOAD_ID));
+                    } catch (MessagingException ignored) { }
+                }
+                if (!suid.startsWith("-") || !samePending) {
                     // no temp. suid in use
                     suid = storedNotes.GetTempNumber(currentNote);
                 }
@@ -198,9 +222,10 @@ typesafe.  Make them final to prevent accidental reuse.
                     return false;
                 }
                 if ((action == Action.Update) && (!oldSuid.startsWith("-"))) {
-                    MoveMailToDeleted(oldSuid);
+                    // The old remote message stays until the replacement is acknowledged.
                 }
-                storedNotes.DeleteANote(oldSuid, currentNote.GetAccount());
+                if (!oldSuid.startsWith("-") || samePending)
+                    storedNotes.DeleteANote(oldSuid, currentNote.GetAccount());
                 currentNote.SetState(OneNote.SAVE_STATE_OK);
                 storedNotes.InsertANoteInDb(currentNote);
 
@@ -280,8 +305,8 @@ typesafe.  Make them final to prevent accidental reuse.
             if (!(currentNote == null)) notesList.add(0, currentNote);
         }
 
-        adapter.notifyDataSetChanged();
-        if (action == Action.Delete) result = false;
+        if (adapter != null) adapter.notifyDataSetChanged();
+
         listener.onFinishPerformed(result, ErrorMsg);
     }
 
@@ -297,20 +322,17 @@ typesafe.  Make them final to prevent accidental reuse.
      * @param suid IMAP ID of the note.
      */
     private void MoveMailToDeleted(@NonNull String suid) {
-        File directory = ImapNotesAccount.GetRootDirAccount();
-        // TODO: Explain why we need to omit the first character of the UID
-        File from = new File(directory, Utilities.addMailExt(suid));
-        if (!from.exists()) {
-            String positiveUid = suid.substring(1);
-            from = new File(directory + "/new", Utilities.addMailExt(positiveUid));
-            // TODO: Explain why it is safe to ignore the result of delete.
-            //noinspection ResultOfMethodCallIgnored
-            from.delete();
+        File root = ImapNotesAccount.GetRootDirAccount();
+        if (suid.startsWith("-")) {
+            File pending = new File(new File(root, "new"), Utilities.addMailExt(suid.substring(1)));
+            if (pending.exists() && !pending.delete()) throw new IllegalStateException("Cannot remove pending note");
         } else {
-            File to = new File(directory + "/deleted/" + Utilities.addMailExt(suid));
-            // TODO: Explain why it is safe to ignore the result of rename.
-            //noinspection ResultOfMethodCallIgnored
-            from.renameTo(to);
+            File from = new File(root, Utilities.addMailExt(suid));
+            if (!from.exists()) from = new File(root, suid);
+            File deleted = new File(root, "deleted");
+            if (!deleted.isDirectory() && !deleted.mkdirs()) throw new IllegalStateException("Cannot queue deletion");
+            if (!from.exists() || !from.renameTo(new File(deleted, Utilities.addMailExt(suid))))
+                throw new IllegalStateException("Cannot queue deletion");
         }
     }
 
@@ -359,8 +381,20 @@ typesafe.  Make them final to prevent accidental reuse.
         //Log.d(TAG,"Add new note");
         Message message;
         try {
-            message = HtmlNote.GetMessageFromNote(note, noteBody);
-        } catch (MessagingException e) {
+            Message original = originalSnapshot == null ? null : SyncUtils.ReadMailFromFile(originalSnapshot);
+            if (originalSnapshot != null && original == null)
+                throw new IOException("Original note snapshot is unavailable");
+            String formatted = NoteMime.html(HtmlNote.GetMessageFromNote(note, noteBody));
+            message = original == null ? HtmlNote.GetMessageFromNote(note, noteBody) : NoteMime.rewrite(original, formatted);
+            message.setHeader(NoteMime.UPLOAD_ID, java.util.UUID.randomUUID().toString());
+            if (original != null) {
+                // Carry the initial base across repeated edits of a pending local note.
+                for (String header : new String[]{NoteMime.REPLACES, NoteMime.VALIDITY, NoteMime.BASE_HASH}) {
+                    String[] v = original.getHeader(header);
+                    if (v != null) message.setHeader(header, v[0]);
+                }
+            }
+        } catch (MessagingException | IOException e) {
             Log.e(TAG, "WriteMailToNew: GetMessageFromNote fatal failed:", e);
             throw new RuntimeException(e);
         }
@@ -379,7 +413,7 @@ typesafe.  Make them final to prevent accidental reuse.
             Log.e(TAG, "WriteMailToNew: addHeader Date failed:", e);
         }
         // Get temporary UID
-        String uid = Integer.toString(Math.abs(Integer.parseInt(note.GetUid())));
+        String uid = note.GetUid().startsWith("-") ? note.GetUid().substring(1) : note.GetUid();
         File accountDirectory = ImapNotesAccount.GetRootDirAccount();
         File directory = new File(accountDirectory, "new");
         try {
@@ -388,14 +422,12 @@ typesafe.  Make them final to prevent accidental reuse.
             Log.e(TAG, "WriteMailToNew: UsernameToEmail failed:", e);
         }
         File outfile = new File(directory, Utilities.addMailExt(uid));
-        OutputStream str = null;
         try {
-            str = new FileOutputStream(outfile, false);
-            message.writeTo(str);
-            str.close();
+            NoteMime.writeAtomic(outfile, message);
         } catch (IOException | MessagingException e) {
-            Log.e(TAG, "WriteMailToNew: write file fatal failed:", e);
+            throw new IllegalStateException("Cannot persist note", e);
         }
+
     }
 
     public Address UserNameToEmail(@NonNull String name) {

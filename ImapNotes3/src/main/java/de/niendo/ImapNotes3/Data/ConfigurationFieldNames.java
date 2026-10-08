@@ -22,6 +22,7 @@
 package de.niendo.ImapNotes3.Data;
 
 public final class ConfigurationFieldNames {
+    public static final String Authentication = "authentication";
     public static final String UserName = "username";
     public static final String ImapFolder = "imapfolder";
     public static final String Server = "server";

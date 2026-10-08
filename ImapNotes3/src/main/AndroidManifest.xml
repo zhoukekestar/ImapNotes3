@@ -1,9 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:dist="http://schemas.android.com/apk/distribution"
-    xmlns:tools="http://schemas.android.com/tools"
-    android:versionCode="10407"
-    android:versionName="v1.4-07">
+    xmlns:tools="http://schemas.android.com/tools">
 
     <dist:module dist:instant="true" />
 
@@ -20,9 +18,11 @@
         android:name="android.permission.WRITE_EXTERNAL_STORAGE"
         android:maxSdkVersion="32" />
 
+    <queries><package android:name="com.google.android.gms" /></queries>
+
     <application
         android:name=".ImapNotes3"
-        android:allowBackup="true"
+        android:allowBackup="false"
         android:dataExtractionRules="@xml/backup_rules"
         android:enableOnBackInvokedCallback="true"
         android:fullBackupContent="@xml/backup_rules"
@@ -117,7 +117,7 @@
         <!-- suppress AndroidDomInspection -->
         <provider
             android:name=".Sync.StubProvider"
-            android:authorities="de.niendo.ImapNotes3.provider"
+            android:authorities="${applicationId}.provider"
             android:exported="false" />
 
         <service

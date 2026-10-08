@@ -47,6 +47,7 @@ import de.niendo.ImapNotes3.ImapNotes3;
 import de.niendo.ImapNotes3.ListActivity;
 import de.niendo.ImapNotes3.Miscs.ImapNotesResult;
 import de.niendo.ImapNotes3.Miscs.Utilities;
+import de.niendo.ImapNotes3.Miscs.HtmlNote;
 
 import com.sun.mail.imap.AppendUID;
 
@@ -92,6 +93,17 @@ class SyncAdapter extends AbstractThreadedSyncAdapter {
                               String authority,
                               ContentProviderClient provider,
                               SyncResult syncResult) {
+        synchronized (de.niendo.ImapNotes3.Miscs.AccountLocks.forAccount(accountArg.name)) {
+            try { performSync(accountArg, extras, syncResult); }
+            catch (Exception e) {
+                syncResult.stats.numIoExceptions++;
+                NotifySyncFinished(true, false, "Sync failed; local changes retained");
+                Log.w(TAG, "Sync failed", e);
+            } finally { syncUtils.DisconnectFromRemote(); }
+        }
+    }
+
+    private void performSync(Account accountArg, Bundle extras, SyncResult syncResult) {
         Log.d(TAG, "Beginning network synchronization of account: " + accountArg.name);
         // TODO: should the account be static?  Should it be local?  If static then why do we not
         // provide it in the constructor?  What happens if we allow parallel syncs?
@@ -105,9 +117,9 @@ class SyncAdapter extends AbstractThreadedSyncAdapter {
         ImapNotesResult res = ConnectToRemote();
         String errorMessage = "";
 
-        if (res.returnCode == ImapNotesResult.ResultCodeImapFolderCreated) {
-            SaveAllNotesToNew();
-        } else if (res.returnCode != ImapNotesResult.ResultCodeSuccess) {
+        if (res.returnCode != ImapNotesResult.ResultCodeSuccess &&
+                res.returnCode != ImapNotesResult.ResultCodeImapFolderCreated) {
+            syncResult.stats.numIoExceptions++;
             NotifySyncFinished(false, false, res.errorMessage);
             return;
         } else if (!(res.UIDValidity.equals(
@@ -115,25 +127,43 @@ class SyncAdapter extends AbstractThreadedSyncAdapter {
             // Compare UIDValidity to old saved one
             // Replace local data by remote.  UIDs are no longer valid.
             try {
-                // delete notes in NotesDb for this account
+                // Keep pending notes, deletion markers and a recoverable archive of the old namespace.
+                File root = account.GetRootDirAccount();
+                File archive = new File(root, "uid-archive-" + System.currentTimeMillis());
+                if (!archive.mkdirs()) throw new IOException("Cannot archive old UID namespace");
+                File[] local = root.listFiles();
+                if (local != null) for (File f : local) {
+                    if (f.isFile() && !f.renameTo(new File(archive, f.getName())))
+                        throw new IOException("Cannot archive note");
+                }
+                File deleted = new File(root, "deleted");
+                File[] removals = deleted.listFiles();
+                if (removals != null) for (File f : removals) {
+                    if (!f.renameTo(new File(archive, "deleted-" + f.getName())))
+                        throw new IOException("Cannot archive deletion marker");
+                }
                 storedNotes.ClearDb(accountArg.name);
-                // delete notes in folders for this account and recreate dirs
-                //SyncUtils.ClearHomeDir(accountArg, applicationContext);
-                account.ClearHomeDir();
-                //SyncUtils.CreateLocalDirectories(accountArg.name, applicationContext);
-                account.CreateLocalDirectories();
-                // Get all notes from remote and replace local
-                syncUtils.GetNotes(accountArg,
-                        account.GetRootDirAccount(),
-                        applicationContext, storedNotes);
+                // Rebuild pending local entries independently of old IMAP UIDs.
+                File[] pending = new File(root, "new").listFiles();
+                if (pending != null) for (File f : pending) {
+                    if (!f.getName().endsWith(".eml")) continue;
+                    Message m = SyncUtils.ReadMailFromFile(f);
+                    if (m == null) throw new IOException("Unreadable pending note");
+                    storedNotes.InsertANoteInDb(new OneNote(m.getSubject(),
+                            Utilities.internalDateFormat.format(new java.util.Date()),
+                            "-" + Utilities.removeMailExt(f.getName()), accountArg.name,
+                            HtmlNote.GetNoteFromMessage(m).color, OneNote.SAVE_STATE_OK));
+                }
+                syncUtils.GetNotes(accountArg, root, applicationContext, storedNotes);
+                SyncUtils.SetUIDValidity(accountArg, res.UIDValidity, applicationContext);
             } catch (MessagingException | IOException e) {
-                errorMessage = e.getLocalizedMessage();
-                Log.e(TAG, "onPerformSync Clear failed", e);
+                syncResult.stats.numIoExceptions++;
+                errorMessage = "UID namespace changed; local changes retained for retry";
+                Log.w(TAG, errorMessage, e);
             }
-            SyncUtils.SetUIDValidity(accountArg, res.UIDValidity, applicationContext);
             // Notify ListActivity that it's finished, and that it can refresh display
             Log.d(TAG, "end on perform :" + errorMessage);
-            NotifySyncFinished(true, true, errorMessage);
+            NotifySyncFinished(true, errorMessage.isEmpty(), errorMessage);
             return;
         }
 
@@ -153,6 +183,7 @@ class SyncAdapter extends AbstractThreadedSyncAdapter {
                     storedNotes, accountArg.name);
         } catch (MessagingException | IOException e) {
             errorMessage = e.getLocalizedMessage();
+            syncResult.stats.numIoExceptions++;
             Log.e(TAG, "onPerformSync handleRemoteNotes failed", e);
         }
         if (remoteNotesManaged) isChanged = true;
@@ -176,7 +207,7 @@ class SyncAdapter extends AbstractThreadedSyncAdapter {
             }
         }
         Log.d(TAG, "Finish network synchronization of account: " + accountArg.name + " Msg: " + errorMessage);
-        NotifySyncFinished(isChanged, true, errorMessage);
+        NotifySyncFinished(isChanged, errorMessage.isEmpty(), errorMessage);
     }
 
     private void NotifySyncFinished(boolean isChanged,
@@ -201,20 +232,9 @@ class SyncAdapter extends AbstractThreadedSyncAdapter {
     @NonNull
     private ImapNotesResult ConnectToRemote() {
         Log.d(TAG, "ConnectToRemote");
-        AccountManager am = AccountManager.get(applicationContext);
         ImapNotesResult res;
         try {
-            res = syncUtils.ConnectToRemote(
-                    account.username,
-                    //am.getUserData(account.GetAccount(), ConfigurationFieldNames.UserName),
-                    am.getPassword(account.GetAccount()),
-                    am.getUserData(account.GetAccount(), ConfigurationFieldNames.Server),
-                    am.getUserData(account.GetAccount(), ConfigurationFieldNames.PortNumber),
-                    Security.from(am.getUserData(account.GetAccount(), ConfigurationFieldNames.Security)),
-                    account.GetImapFolder(),
-                    account.GetCopyImapFolderName(),
-                    THREAD_ID
-            );
+            res = syncUtils.ConnectToRemote(account, applicationContext, THREAD_ID);
             if (res.returnCode != ImapNotesResult.ResultCodeSuccess) {
                 // TODO: Notify the user?
                 Log.e(TAG, "Connection problem: " + res.errorMessage);
@@ -237,8 +257,8 @@ class SyncAdapter extends AbstractThreadedSyncAdapter {
         Log.d(TAG, "dn path: " + dirNew.getAbsolutePath());
         Log.d(TAG, "dn exists: " + dirNew.exists());
         String[] listOfNew = dirNew.list();
-        AppendUID[] uids;
         for (String fileNew : Objects.requireNonNull(listOfNew)) {
+            if (!fileNew.endsWith(".eml")) continue;
             String suidFileNew = Utilities.removeMailExt(fileNew);
             Log.d(TAG, "New Note to process:" + fileNew);
             newNotesManaged = true;
@@ -250,61 +270,45 @@ class SyncAdapter extends AbstractThreadedSyncAdapter {
                 Log.d(TAG, "handleNewNotes message: " + Objects.requireNonNull(message).getSize());
                 Log.d(TAG, "handleNewNotes message: " + fileInNew.length());
             } catch (Exception e) {
-                Log.e(TAG, "handleNewNotes failed", e);
-                continue;
+                storedNotes.SetSaveState("-" + suidFileNew, OneNote.SAVE_STATE_FAILED, account.accountName);
+                throw new IllegalStateException("Unreadable queued note retained", e);
             }
             try {
                 message.setFlag(Flags.Flag.SEEN, true); // set message as seen
             } catch (MessagingException e) {
-                Log.e(TAG, "handleNewNotes setFlag Error: ", e);
-                continue;
+                throw new IllegalStateException("Cannot prepare queued note", e);
             }
             // Send this new message to remote
 
+            String newuid;
             try {
-                uids = syncUtils.sendMessageToRemote(new MimeMessage[]{(MimeMessage) message});
+                UploadTransaction.ensureId(message);
+                de.niendo.ImapNotes3.Miscs.NoteMime.writeAtomic(fileInNew, message);
+                newuid = Long.toString(syncUtils.uploadNote(message));
             } catch (Exception e) {
-                Log.e(TAG, "handleNewNotes sendMessageToRemote Error: ", e);
-                continue;
+                storedNotes.SetSaveState("-" + suidFileNew, OneNote.SAVE_STATE_OK, account.accountName);
+                throw new IllegalStateException("Upload failed; replacement retained", e);
             }
-            // Update uid in database entry
-            String newuid = Long.toString(uids[0].uid);
             Log.d(TAG, "handleNewNotes uid: " + newuid);
 
             File to = new File(accountDir, Utilities.addMailExt(newuid));
             if (fileInNew.renameTo(to)) {
                 // move new note from new dir, one level up
-                storedNotes.UpdateANote("-" + suidFileNew, newuid, account.accountName);
+                storedNotes.DeleteANote("-" + suidFileNew, account.accountName);
+                storedNotes.DeleteANote(newuid, account.accountName);
+                try {
+                    storedNotes.InsertANoteInDb(new OneNote(message.getSubject(),
+                            Utilities.internalDateFormat.format(new java.util.Date()), newuid,
+                            account.accountName, HtmlNote.GetNoteFromMessage(message).color, OneNote.SAVE_STATE_OK));
+                } catch (MessagingException e) { throw new IllegalStateException(e); }
                 List<String> tags = ListActivity.searchHTMLTags(accountDir, newuid, Utilities.HASHTAG_PATTERN, true);
                 storedNotes.UpdateTags(tags, newuid, account.accountName);
                 storedNotes.SetSaveState(newuid, OneNote.SAVE_STATE_OK, account.accountName);
+            } else {
+                throw new IllegalStateException("Cannot finalize uploaded note; pending file retained");
             }
         }
         return newNotesManaged;
-    }
-
-    /**
-     * Only needed, when the server mail folder not exists anymore (deleted or renamed)
-     * the folder is already created..so just save the notes here
-     */
-    private void SaveAllNotesToNew() {
-        Log.d(TAG, "SaveAllNotesToNew");
-        File accountDir = account.GetRootDirAccount();
-        File dirNew = new File(accountDir, "new");
-        String[] listOfNotes = accountDir.list();
-        for (String fileName : Objects.requireNonNull(listOfNotes)) {
-            File to = new File(dirNew, "-" + fileName);
-            File file = new File(accountDir, fileName);
-            if (file.isFile()) {
-                Log.d(TAG, "rename: " + file.getAbsolutePath() + " to " + to.getAbsolutePath());
-                if (file.renameTo(to)) {
-                    storedNotes.UpdateANote(fileName, "-" + fileName, account.accountName);
-                } else {
-                    Log.d(TAG, "rename failed");
-                }
-            }
-
-        }
     }
 
     private boolean handleDeletedNotes() {
@@ -317,7 +321,7 @@ class SyncAdapter extends AbstractThreadedSyncAdapter {
             try {
                 syncUtils.DeleteNote(fileDeleted);
             } catch (Exception e) {
-                Log.e(TAG, "DeleteNote failed: ", e);
+                throw new IllegalStateException("Delete failed; marker retained", e);
             }
 
             // remove file from deleted

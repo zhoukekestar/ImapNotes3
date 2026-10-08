@@ -50,6 +50,7 @@ public class ImapNotesAccount {
     public final String username;
     @NonNull
     public final String password;
+    public boolean googleOAuth;
     @NonNull
     public final String server;
     @NonNull
@@ -103,6 +104,7 @@ public class ImapNotesAccount {
         syncInterval = SyncInterval.from(am.getUserData(account, ConfigurationFieldNames.SyncInterval));
         username = am.getUserData(account, ConfigurationFieldNames.UserName);
         password = am.getPassword(account);
+        googleOAuth = "google".equals(am.getUserData(account, ConfigurationFieldNames.Authentication));
         server = am.getUserData(account, ConfigurationFieldNames.Server);
         portnum = am.getUserData(account, ConfigurationFieldNames.PortNumber);
         security = Security.from(am.getUserData(account, ConfigurationFieldNames.Security));

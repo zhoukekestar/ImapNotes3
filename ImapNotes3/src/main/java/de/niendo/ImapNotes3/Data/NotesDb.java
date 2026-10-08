@@ -22,6 +22,8 @@
 
 package de.niendo.ImapNotes3.Data;
 
+import de.niendo.ImapNotes3.ImapNotes3;
+
 import android.content.ContentValues;
 import android.content.Context;
 import android.database.Cursor;
@@ -223,6 +225,16 @@ public class NotesDb extends SQLiteOpenHelper {
                 RetValue = c.getString(0);
             }
         }
+        // A crashed save can leave a durable queued file without a database row.
+        java.io.File[] pending = new java.io.File(ImapNotes3.GetAccountDir(noteElement.GetAccount()), "new").listFiles();
+        long next = Math.abs(Long.parseLong(RetValue));
+        if (pending != null) for (java.io.File file : pending) {
+            if (!file.getName().endsWith(".eml")) continue;
+            try {
+                next = Math.max(next, Long.parseLong(file.getName().replace(".eml", "")) + 1);
+            } catch (NumberFormatException ignored) { }
+        }
+        RetValue = "-" + next;
         // Create DS with TempNumber, so it can not be given two times
         ContentValues tableRow = new ContentValues();
         tableRow.put(COL_TITLE_NOTE, "~" + noteElement.GetTitle());

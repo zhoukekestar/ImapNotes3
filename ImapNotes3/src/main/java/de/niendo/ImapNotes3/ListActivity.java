@@ -158,11 +158,19 @@ public class ListActivity extends AppCompatActivity implements BackupRestore.INo
     //@Nullable
     private ListView listview;
     private AsyncTask updateThread;
+    private final android.os.Handler foregroundHandler = new android.os.Handler(android.os.Looper.getMainLooper());
+    private final Runnable foregroundSync = new Runnable() {
+        public void run() {
+            TriggerSync(false);
+            foregroundHandler.postDelayed(this, 60_000L);
+        }
+    };
 
     @Override
     public void onDestroy() {
         super.onDestroy();
-        getContentResolver().unregisterContentObserver(mObserver);
+        foregroundHandler.removeCallbacks(foregroundSync);
+        if (mObserver != null) getContentResolver().unregisterContentObserver(mObserver);
     }
 
     public static ArrayList<String> getAccountList() {
@@ -297,6 +305,10 @@ public class ListActivity extends AppCompatActivity implements BackupRestore.INo
             else
                 toDetail = new Intent(widget.getContext(), NoteDetailActivity.class);
             toDetail.putExtra(NoteDetailActivity.selectedNote, (OneNote) parent.getItemAtPosition(selectedNote));
+            OneNote selected = (OneNote) parent.getItemAtPosition(selectedNote);
+            long validity = getSharedPreferences(ImapNotes3.RemoveReservedChars(selected.GetAccount()), MODE_PRIVATE)
+                    .getLong("UIDValidity", -1L);
+            toDetail.putExtra("uid_validity", validity);
             toDetail.putExtra(NoteDetailActivity.ActivityType, NoteDetailActivity.ActivityTypeEdit);
             startActivityForResult(toDetail, SEE_DETAIL);
             setIntentAsProcessed();
@@ -377,6 +389,8 @@ public class ListActivity extends AppCompatActivity implements BackupRestore.INo
     protected void onResume() {
         super.onResume();
         Log.d(TAG, "onResume");
+        foregroundHandler.removeCallbacks(foregroundSync);
+        foregroundHandler.postDelayed(foregroundSync, 60_000L);
         Check_Action_Send();
     }
 
@@ -384,6 +398,7 @@ public class ListActivity extends AppCompatActivity implements BackupRestore.INo
     protected void onPause() {
         Log.d(TAG, "onPause");
         super.onPause();
+        foregroundHandler.removeCallbacks(foregroundSync);
         savePreferences();
         if (!(updateThread == null)) {
             // for some reason this helps...
@@ -651,7 +666,7 @@ public class ListActivity extends AppCompatActivity implements BackupRestore.INo
         settingsBundle.putBoolean(ContentResolver.SYNC_EXTRAS_MANUAL, true);
         settingsBundle.putBoolean(ContentResolver.SYNC_EXTRAS_EXPEDITED, true);
         settingsBundle.putBoolean(REFRESH_TAGS, refreshTags);
-        ContentResolver.cancelSync(mAccount, AUTHORITY);
+        // Let active uploads complete; manual refresh queues a request.
         ContentResolver.requestSync(mAccount, AUTHORITY, settingsBundle);
     }
 
@@ -796,6 +811,10 @@ public class ListActivity extends AppCompatActivity implements BackupRestore.INo
                     UpdateList(suid, null, null, accountName, UpdateThread.Action.Delete);
                 }
                 if (resultCode == ListActivity.EDIT_BUTTON) {
+                    if (data != null && data.getBooleanExtra(NoteDetailActivity.SAVED_LOCALLY, false)) {
+                        RefreshList();
+                        break;
+                    }
                     String txt = ImapNotes3.AvoidLargeBundle;  //data.getStringExtra(EDIT_ITEM_TXT);
                     String suid = data.getStringExtra(EDIT_ITEM_NUM_IMAP);
                     String bgcolor = data.getStringExtra(EDIT_ITEM_COLOR);
@@ -806,6 +825,10 @@ public class ListActivity extends AppCompatActivity implements BackupRestore.INo
             case ListActivity.NEW_BUTTON:
                 // Returning from NewNoteActivity
                 if (resultCode == ListActivity.EDIT_BUTTON) {
+                    if (data != null && data.getBooleanExtra(NoteDetailActivity.SAVED_LOCALLY, false)) {
+                        RefreshList();
+                        break;
+                    }
                     String txt = ImapNotes3.AvoidLargeBundle; //data.getStringExtra(EDIT_ITEM_TXT);
                     String bgcolor = data.getStringExtra(EDIT_ITEM_COLOR);
                     String accountName = data.getStringExtra(EDIT_ITEM_ACCOUNTNAME);

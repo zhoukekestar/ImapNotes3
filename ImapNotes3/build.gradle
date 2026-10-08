@@ -3,22 +3,25 @@ apply plugin: 'com.android.application'
 android {
     signingConfigs {
         release {
-            storeFile file('../keystore.jks')
-            storePassword 'ImapNotes2'
-            keyAlias 'ImapNotes'
-            keyPassword 'ImapNotes'
+            if (System.getenv('ANDROID_KEYSTORE_PATH')) {
+                storeFile file(System.getenv('ANDROID_KEYSTORE_PATH'))
+                storePassword System.getenv('ANDROID_KEYSTORE_PASSWORD')
+                keyAlias System.getenv('ANDROID_KEY_ALIAS')
+                keyPassword System.getenv('ANDROID_KEY_PASSWORD')
+            }
         }
     }
 
     compileSdk 37
-    // buildToolsVersion "34.0.0"
+    buildToolsVersion "37.0.0"
 
     //noinspection GroovyMissingReturnStatement
     defaultConfig {
-        applicationId "de.niendo.ImapNotes3"
+        applicationId "io.github.zhoukekestar.imapnotes3"
+        versionCode 10408
+        versionName "1.4.8-microg.1"
         targetSdkVersion 35
         minSdkVersion 25
-        signingConfig signingConfigs.release
         buildConfigField 'String', 'APPLICATION_NAME', '"ImapNotes3"'
     }
     buildTypes {
@@ -42,7 +45,7 @@ android {
 
         }
         debug {
-            signingConfig signingConfigs.release
+            signingConfig signingConfigs.debug
             debuggable true
         }
     }
@@ -80,6 +83,8 @@ android {
         includeInBundle = false
     }
 
+    lint { warning 'MissingTranslation' }
+
     //lint {
     //    baseline = file("lint-baseline.xml")
     //}
@@ -98,7 +103,8 @@ dependencies {
     implementation 'org.jetbrains:annotations:26.1.0'
     implementation 'org.jsoup:jsoup:1.23.1'
     implementation 'io.github.eltos:simpledialogfragments:3.10'
-    implementation 'com.github.woheller69:FreeDroidWarn:V1.+'
+    implementation 'com.github.woheller69:FreeDroidWarn:V1.14'
+    testImplementation 'junit:junit:4.13.2'
 }
 
 // ToDo
@@ -109,3 +115,14 @@ dependencies {
 //}
 
 
+
+tasks.register('requireReleaseSigning') {
+    doLast {
+        ['ANDROID_KEYSTORE_PATH', 'ANDROID_KEYSTORE_PASSWORD', 'ANDROID_KEY_ALIAS', 'ANDROID_KEY_PASSWORD'].each {
+            if (!System.getenv(it)) throw new GradleException("Release signing requires ${it}")
+        }
+    }
+}
+tasks.matching { it.name == 'preReleaseBuild' }.configureEach {
+    dependsOn tasks.named('requireReleaseSigning')
+}

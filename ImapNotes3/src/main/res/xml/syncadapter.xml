@@ -1,7 +1,7 @@
 <sync-adapter xmlns:android="http://schemas.android.com/apk/res/android"
-    android:accountType="de.niendo.ImapNotes3"
+    android:accountType="io.github.zhoukekestar.imapnotes3"
     android:allowParallelSyncs="false"
-    android:contentAuthority="de.niendo.ImapNotes3.provider"
+    android:contentAuthority="io.github.zhoukekestar.imapnotes3.provider"
     android:isAlwaysSyncable="false"
     android:supportsUploading="true"
     android:userVisible="true" />

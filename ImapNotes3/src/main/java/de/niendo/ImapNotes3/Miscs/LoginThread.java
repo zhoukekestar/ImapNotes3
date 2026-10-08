@@ -63,16 +63,9 @@ public class LoginThread extends AsyncTask<Void, Void, Result<String>> {
         boolean newFolder = false;
         try {
             SyncUtils syncUtils = new SyncUtils();
-            ImapNotesResult res = syncUtils.ConnectToRemote(
-                    ImapNotesAccount.username,
-                    ImapNotesAccount.password,
-                    ImapNotesAccount.server,
-                    ImapNotesAccount.portnum,
-                    ImapNotesAccount.security,
-                    ImapNotesAccount.GetImapFolder(),
-                    ImapNotesAccount.GetCopyImapFolderName(),
-                    THREAD_ID
-            );
+            ImapNotesResult res = syncUtils.ConnectToRemote(ImapNotesAccount,
+                    accountConfigurationActivity, THREAD_ID);
+            syncUtils.DisconnectFromRemote();
             if (res.returnCode == ImapNotesResult.ResultCodeImapFolderCreated) {
                 newFolder = true;
             } else if (res.returnCode != ImapNotesResult.ResultCodeSuccess) {
@@ -91,7 +84,7 @@ public class LoginThread extends AsyncTask<Void, Void, Result<String>> {
             if (action == AccountConfigurationActivity.Actions.EDIT_ACCOUNT) {
                 resultTxtId = R.string.account_modified;
             } else {
-                if (!am.addAccountExplicitly(account, ImapNotesAccount.password, null)) {
+                if (!am.addAccountExplicitly(account, ImapNotesAccount.googleOAuth ? null : ImapNotesAccount.password, null)) {
                     return new Result<>(accountConfigurationActivity.getString(R.string.account_already_exists_or_is_null), false);
                 }
                 resultTxtId = R.string.account_added;
@@ -105,8 +98,9 @@ public class LoginThread extends AsyncTask<Void, Void, Result<String>> {
             // Run the Sync Adapter Periodically
             ContentResolver.setIsSyncable(account, AccountConfigurationActivity.AUTHORITY, 1);
             ContentResolver.setSyncAutomatically(account, AccountConfigurationActivity.AUTHORITY, true);
+            ContentResolver.removePeriodicSync(account, AccountConfigurationActivity.AUTHORITY, new Bundle());
             // we can enable inexact timers in our periodic sync
-            SyncRequest request = new SyncRequest.Builder().syncPeriodic(ImapNotesAccount.syncInterval.time * 60L, ImapNotesAccount.syncInterval.time * 60L)
+            SyncRequest request = new SyncRequest.Builder().syncPeriodic(Math.max(900L, ImapNotesAccount.syncInterval.time * 60L), 60L)
                     .setSyncAdapter(account, AccountConfigurationActivity.AUTHORITY).setExtras(new Bundle()).build();
             if (ImapNotesAccount.syncInterval.time > 0) {
                 ContentResolver.requestSync(request);
@@ -122,6 +116,8 @@ public class LoginThread extends AsyncTask<Void, Void, Result<String>> {
 
     private void setUserData(@NonNull AccountManager am,
                              @NonNull Account account) {
+        am.setPassword(account, ImapNotesAccount.googleOAuth ? null : ImapNotesAccount.password);
+        am.setUserData(account, ConfigurationFieldNames.Authentication, ImapNotesAccount.googleOAuth ? "google" : "password");
         am.setUserData(account, ConfigurationFieldNames.UserName, ImapNotesAccount.username);
         am.setUserData(account, ConfigurationFieldNames.Server, ImapNotesAccount.server);
         am.setUserData(account, ConfigurationFieldNames.PortNumber, ImapNotesAccount.portnum);

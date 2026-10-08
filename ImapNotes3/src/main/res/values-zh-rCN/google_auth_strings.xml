@@ -1,0 +1,8 @@
+<resources>
+    <string name="google_login">通过系统 Google / microG 账号登录 Gmail</string>
+    <string name="google_choose_account">选择 Google 账号</string>
+    <string name="google_auth_required">请先在系统 microG 设置中添加 Google 账号，再在此授权 Gmail 访问。</string>
+    <string name="google_help">使用系统 Google 认证器（标准 microG 或 Google Play 服务）。不支持 ReVanced GmsCore 账号。IMAP 授权允许访问完整 Gmail 邮箱。</string>
+    <string name="attachments">附件</string>
+    <string name="save_failed">本地保存失败，编辑内容仍保留在当前页面。</string>
+</resources>

@@ -81,8 +81,11 @@ public class AccountConfigurationActivity extends AccountAuthenticatorActivity i
 
 
     @Nullable
-    private static Account myAccount = null;
-    private static AccountManager accountManager;
+    private Account myAccount = null;
+    private AccountManager accountManager;
+    private CheckBox googleLogin;
+    private static final int GOOGLE_PICKER = 81;
+    private boolean googleAuthorized;
     private final OnClickListener clickListenerRemove = new View.OnClickListener() {
         @Override
         public void onClick(View v) {
@@ -355,6 +358,35 @@ public class AccountConfigurationActivity extends AccountAuthenticatorActivity i
         }
 
         LinearLayout layout = findViewById(R.id.buttonsLayout);
+        googleLogin = new CheckBox(this);
+        googleLogin.setText(R.string.google_login);
+        layout.addView(googleLogin, 0);
+        Button chooseGoogle = new Button(this);
+        chooseGoogle.setText(R.string.google_choose_account);
+        layout.addView(chooseGoogle, 1);
+        chooseGoogle.setOnClickListener(v -> {
+            try {
+                startActivityForResult(AccountManager.newChooseAccountIntent(null, null,
+                        new String[]{de.niendo.ImapNotes3.Miscs.GoogleAccountAuth.ACCOUNT_TYPE},
+                        getString(R.string.google_help), null, null, null), GOOGLE_PICKER);
+            } catch (Exception e) {
+                showGoogleError();
+            }
+        });
+        googleLogin.setOnCheckedChangeListener((button, checked) -> {
+            googleAuthorized = false;
+            passwordTextView.setEnabled(!checked);
+            usernameTextView.setEnabled(!checked);
+            serverTextView.setEnabled(!checked);
+            securitySpinner.setEnabled(!checked);
+            portnumTextView.setEnabled(!checked);
+            if (checked) {
+                serverTextView.setText("imap.gmail.com");
+                portnumTextView.setText("993");
+                security = Security.SSL_TLS;
+                securitySpinner.setSelection(security.ordinal());
+            }
+        });
         accountManager = AccountManager.get(getApplicationContext());
         Account[] accounts = accountManager.getAccountsByType(Utilities.PackageName);
         for (Account account : accounts) {
@@ -375,6 +407,7 @@ public class AccountConfigurationActivity extends AccountAuthenticatorActivity i
             accountnameTextView.setText(accountname);
             accountnameTextView.setEnabled(false);
             usernameTextView.setText(GetConfigValue(ConfigurationFieldNames.UserName));
+            googleLogin.setChecked("google".equals(GetConfigValue(ConfigurationFieldNames.Authentication)));
             //passwordTextView.setText(accountManager.getPassword(myAccount));
             serverTextView.setText(GetConfigValue(ConfigurationFieldNames.Server));
             portnumTextView.setText(GetConfigValue(ConfigurationFieldNames.PortNumber));
@@ -443,9 +476,17 @@ public class AccountConfigurationActivity extends AccountAuthenticatorActivity i
     private void DoLogin() {
         Log.d(TAG, "DoLogin");
 
+        if (googleLogin.isChecked() && !googleAuthorized) {
+            de.niendo.ImapNotes3.Miscs.GoogleAccountAuth.authorize(this,
+                    GetTextViewText(usernameTextView), () -> {
+                        googleAuthorized = true;
+                        CheckNameAndLogIn();
+                    }, error -> showGoogleError());
+            return;
+        }
         //password will not shown if account is edit and have to be loaded;
         String password = GetTextViewText(passwordTextView);
-        if ((action == Actions.EDIT_ACCOUNT) && (password.isEmpty())) {
+        if (!googleLogin.isChecked() && (action == Actions.EDIT_ACCOUNT) && (password.isEmpty())) {
             // Server name edited: new password required (avoid password spoofing)
             if (GetTextViewText(serverTextView).equals(GetConfigValue(ConfigurationFieldNames.Server))) {
                 password = accountManager.getPassword(myAccount);
@@ -466,6 +507,7 @@ public class AccountConfigurationActivity extends AccountAuthenticatorActivity i
                 GetTextViewText(folderTextView),
                 GetTextViewText(copyImapFolderNameTextView),
                 GetCheckBoxValue(copyImapFolderCheckBox));
+        ImapNotesAccount.googleOAuth = googleLogin.isChecked();
         // No need to check for valid numbers because the field only allows digits.  But it is
         // possible to remove all characters which causes the program to crash.  The easiest fix is
         // to add a zero at the beginning so that we are guaranteed to be able to parse it but that
@@ -475,6 +517,24 @@ public class AccountConfigurationActivity extends AccountAuthenticatorActivity i
                 ImapNotesAccount,
                 this,
                 action).execute();
+    }
+
+    private void showGoogleError() {
+        new AlertDialog.Builder(this).setMessage(R.string.google_auth_required)
+                .setPositiveButton(android.R.string.ok, null).show();
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == GOOGLE_PICKER && resultCode == RESULT_OK && data != null) {
+            String email = data.getStringExtra(AccountManager.KEY_ACCOUNT_NAME);
+            if (email != null) {
+                usernameTextView.setText(email);
+                googleLogin.setChecked(true);
+                googleAuthorized = false;
+            }
+        }
     }
 
     public boolean onCreateOptionsMenu(Menu menu) {

@@ -9,7 +9,6 @@
     <cache-path
         name="cache"
         path="Android/data/${applicationId}/" />
-    <root-path
-        name="root"
-        path="." />
+    <cache-path name="attachments" path="attachments/" />
+    <files-path name="notes" path="." />
 </paths>

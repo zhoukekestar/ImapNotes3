@@ -125,40 +125,11 @@ public class HtmlNote {
 
     @NonNull
     public static HtmlNote GetNoteFromMessage(@NonNull Message message) {
-        ContentType contentType;
-        String stringres = "";
-
-        MailcapCommandMap mc = (MailcapCommandMap) CommandMap.getDefaultCommandMap();
-        mc.addMailcap("text/html;; x-java-content-handler=com.sun.mail.handlers.text_html");
-        mc.addMailcap("text/xml;; x-java-content-handler=com.sun.mail.handlers.text_xml");
-        mc.addMailcap("text/plain;; x-java-content-handler=com.sun.mail.handlers.text_plain");
-        mc.addMailcap("multipart/*;; x-java-content-handler=com.sun.mail.handlers.multipart_mixed");
-        mc.addMailcap("message/rfc822;; x-java-content-handler=com.sun.mail.handlers.message_rfc822");
-        CommandMap.setDefaultCommandMap(mc);
-
+        String stringres;
         try {
-            Log.v(TAG, "GetNoteFromMessage :" + message);
-            contentType = new ContentType(message.getContentType());
-
-            if (message.isMimeType("multipart/*")) {
-                MimeMultipart mimeMultipart = (MimeMultipart) message.getContent();
-                stringres = getTextFromMimeMultipart(mimeMultipart);
-            } else {
-                if (contentType.match("text/html")) {
-                    stringres = (String) message.getContent();
-                }
-                // import plain text notes
-                if (contentType.match("text/plain")) {
-                    stringres = (String) message.getContent();
-                    Spannable text = new SpannableString(stringres);
-                    stringres = Html.toHtml(text, Html.TO_HTML_PARAGRAPH_LINES_CONSECUTIVE);
-                    stringres = stringres.replaceFirst("<p dir=\"ltr\">", "");
-                }
-            }
-
-        } catch (Exception e) {
-            // FIXME more to do
-            Log.e(TAG, "GetNoteFromMessage failed", e);
+            stringres = NoteMime.html(message);
+        } catch (IOException | MessagingException e) {
+            throw new IllegalStateException("Cannot read note body", e);
         }
 
         return new HtmlNote(

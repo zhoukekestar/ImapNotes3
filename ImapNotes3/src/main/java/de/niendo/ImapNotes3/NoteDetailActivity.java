@@ -110,6 +110,10 @@ public class NoteDetailActivity extends AppCompatActivity implements AdapterView
     public static final double MAX_INSERT_FILE_SIZE_MB = 1.0;
     private static final int EDIT_BUTTON = 6;
     private static final String TAG = "IN_NoteDetailActivity";
+    public static final String SAVED_LOCALLY = "saved_locally";
+    private File originalSnapshot;
+    private boolean saving;
+    private boolean noteReady;
     private boolean textChanged = false;
     private boolean textChangedShare = false;
     @NonNull
@@ -170,20 +174,9 @@ public class NoteDetailActivity extends AppCompatActivity implements AdapterView
             accountName = hm.get(OneNote.ACCOUNT).toString();
 
             File rootDir = ImapNotes3.GetAccountDir(accountName);
-            Message message = SyncUtils.ReadMailFromFileRootAndNew(suid, rootDir);
-            Log.d(TAG, "rootDir: " + rootDir);
-            if (message != null) {
-                HtmlNote htmlNote = HtmlNote.GetNoteFromMessage(message);
-                stringres = htmlNote.text;
-                bgColor = htmlNote.color;
-                SetupRichEditor();
-                editText.setHtml(stringres);
-            } else {
-                // Entry can not opened..
-                ImapNotes3.ShowMessage(R.string.Invalid_Message, null, 3);
-                finish();
-                return;
-            }
+            noteReady = false;
+            editText.setInputEnabled(false);
+            loadExistingNote(rootDir);
         } else if (ChangeNote.equals(ActivityTypeAdd)) {   // new entry
             accountName = intent.getStringExtra(ListActivity.EDIT_ITEM_ACCOUNTNAME);
             SetupRichEditor();
@@ -192,7 +185,74 @@ public class NoteDetailActivity extends AppCompatActivity implements AdapterView
             SetupRichEditor();
             processShareIntent(intent);
         }
+        if (!ChangeNote.equals(ActivityTypeEdit)) noteReady = true;
         ResetColors();
+    }
+
+    private void loadExistingNote(File rootDir) {
+        new Thread(() -> {
+            Message message;
+            synchronized (de.niendo.ImapNotes3.Miscs.AccountLocks.forAccount(accountName)) {
+                long currentValidity = getSharedPreferences(ImapNotes3.RemoveReservedChars(accountName), MODE_PRIVATE)
+                        .getLong("UIDValidity", -1L);
+                long requestedValidity = getIntent().getLongExtra("uid_validity", currentValidity);
+                message = !suid.startsWith("-") && currentValidity != requestedValidity ? null :
+                        SyncUtils.ReadMailFromFileRootAndNew(suid, rootDir);
+                try {
+                    if (message != null) {
+                        originalSnapshot = File.createTempFile("original-note-", ".eml", getCacheDir());
+                        Message snapshot = de.niendo.ImapNotes3.Miscs.NoteMime.copy(message);
+                        if (!suid.startsWith("-")) {
+                            snapshot.setHeader(de.niendo.ImapNotes3.Miscs.NoteMime.REPLACES, suid);
+                            snapshot.setHeader(de.niendo.ImapNotes3.Miscs.NoteMime.BASE_HASH,
+                                    de.niendo.ImapNotes3.Miscs.NoteMime.hash(message));
+                            long validity = getSharedPreferences(ImapNotes3.RemoveReservedChars(accountName), MODE_PRIVATE)
+                                    .getLong("UIDValidity", -1L);
+                            snapshot.setHeader(de.niendo.ImapNotes3.Miscs.NoteMime.VALIDITY, Long.toString(validity));
+                        }
+                        de.niendo.ImapNotes3.Miscs.NoteMime.writeAtomic(originalSnapshot, snapshot);
+                    }
+                } catch (Exception e) { message = null; }
+            }
+            final Message loaded = message;
+            String html = null;
+            String color = "none";
+            try {
+                if (loaded != null) {
+                    html = de.niendo.ImapNotes3.Miscs.NoteMime.displayHtml(loaded);
+                    color = HtmlNote.GetNoteFromMessage(loaded).color;
+                }
+            } catch (Exception e) { html = null; }
+            final String content = html;
+            final String background = color;
+            runOnUiThread(() -> {
+                if (isFinishing() || isDestroyed()) return;
+                if (content == null) {
+                    ImapNotes3.ShowMessage(R.string.Invalid_Message, null, 3);
+                    finish();
+                    return;
+                }
+                bgColor = background;
+                SetupRichEditor();
+                initializeHtml(content);
+                ResetColors();
+            });
+        }, "load-note").start();
+    }
+
+    private void initializeHtml(String content) {
+        if (isFinishing() || isDestroyed()) return;
+        editText.evaluateJavascript("typeof RE !== 'undefined' && RE.editor != null", ready -> {
+            if (!"true".equals(ready)) {
+                editText.postDelayed(() -> initializeHtml(content), 100L);
+                return;
+            }
+            try {
+                String encoded = java.net.URLEncoder.encode(content, "UTF-8");
+                editText.evaluateJavascript("RE.setHtml(" + org.json.JSONObject.quote(encoded) +
+                        ");RE.setInputEnabled(true);", ignored -> noteReady = true);
+            } catch (Exception e) { finish(); }
+        });
     }
 
     @Override
@@ -786,6 +846,9 @@ public class NoteDetailActivity extends AppCompatActivity implements AdapterView
             case R.id.save:
                 saveNote(true);
                 return true;
+            case R.id.attachments:
+                openAttachments();
+                return true;
             case R.id.share:
                 Share();
                 return true;
@@ -911,22 +974,80 @@ public class NoteDetailActivity extends AppCompatActivity implements AdapterView
             return;
         }
 
+        if (saving || !noteReady) return;
+        saving = true;
+        editText.setInputEnabled(false);
         editText.setOnJSDataListener(value -> {
-            Log.d(TAG, "Save setOnJSDataListener");
-            Intent intent = new Intent();
-            intent.putExtra(ListActivity.EDIT_ITEM_NUM_IMAP, suid);
-            intent.putExtra(ListActivity.EDIT_ITEM_ACCOUNTNAME, accountName);
-            ImapNotes3.AvoidLargeBundle = value;
-            //intent.putExtra(ListActivity.EDIT_ITEM_TXT, value);
-            intent.putExtra(ListActivity.EDIT_ITEM_COLOR, bgColor);
-            setResult(NoteDetailActivity.EDIT_BUTTON, intent);
-            textChanged = false;
-            if (finish) finish(); //finishing activity
+            if (!saving) return;
+            editText.setOnJSDataListener(null);
+            if (value == null || "null".equals(value)) {
+                saving = false;
+                editText.setInputEnabled(true);
+                return;
+            }
+            de.niendo.ImapNotes3.Miscs.UpdateThread.Action action =
+                    suid == null || suid.isEmpty() ? de.niendo.ImapNotes3.Miscs.UpdateThread.Action.Insert :
+                            de.niendo.ImapNotes3.Miscs.UpdateThread.Action.Update;
+            new de.niendo.ImapNotes3.Miscs.UpdateThread(accountName, (ok, error) -> {
+                saving = false;
+                editText.setInputEnabled(true);
+                if (ok) {
+                    Intent result = new Intent();
+                    result.putExtra(SAVED_LOCALLY, true);
+                    result.putExtra(ListActivity.EDIT_ITEM_ACCOUNTNAME, accountName);
+                    setResult(EDIT_BUTTON, result);
+                    textChanged = false;
+                    android.accounts.Account account = new android.accounts.Account(accountName, Utilities.PackageName);
+                    Bundle extras = new Bundle();
+                    extras.putBoolean(android.content.ContentResolver.SYNC_EXTRAS_MANUAL, true);
+                    android.content.ContentResolver.requestSync(account, AccountConfigurationActivity.AUTHORITY, extras);
+                    if (finish) finish();
+                } else {
+                    new AlertDialog.Builder(this).setMessage(R.string.save_failed)
+                            .setPositiveButton(android.R.string.ok, null).show();
+                }
+            }, new java.util.ArrayList<>(), null, R.string.save, suid == null ? "" : suid,
+                    value, bgColor, getApplicationContext(), action)
+                    .withOriginalSnapshot(originalSnapshot).execute();
         });
-        // data comes via callback
         editText.getHtml();
-        NotesDb storedNotes = NotesDb.getInstance(getApplicationContext());
-        storedNotes.SetSaveState(suid, OneNote.SAVE_STATE_SAVING, accountName);
+
+    }
+
+    private void openAttachments() {
+        if (saving || !noteReady || originalSnapshot == null) return;
+        try {
+            Message original = SyncUtils.ReadMailFromFile(originalSnapshot);
+            List<javax.mail.Part> parts = de.niendo.ImapNotes3.Miscs.NoteMime.attachments(original);
+            String[] labels = new String[parts.size()];
+            for (int i = 0; i < labels.length; i++) {
+                String filename = parts.get(i).getFileName();
+                labels[i] = filename == null ? "Attachment " + (i + 1) : filename;
+            }
+            new AlertDialog.Builder(this).setTitle(R.string.attachments).setItems(labels, (dialog, index) -> {
+                try {
+                    File directory = new File(getCacheDir(), "attachments");
+                    directory.mkdirs();
+                    File attachment = File.createTempFile("attachment-", "-" +
+                            new File(labels[index]).getName().replaceAll("[^a-zA-Z0-9._-]", "_"), directory);
+                    try (java.io.InputStream in = parts.get(index).getInputStream();
+                         FileOutputStream out = new FileOutputStream(attachment)) {
+                        byte[] buffer = new byte[8192]; int n;
+                        while ((n = in.read(buffer)) != -1) out.write(buffer, 0, n);
+                    }
+                    Uri uri = FileProvider.getUriForFile(this, BuildConfig.APPLICATION_ID, attachment);
+                    String type = new javax.mail.internet.ContentType(parts.get(index).getContentType()).getBaseType();
+                    startActivity(new Intent(Intent.ACTION_VIEW).setDataAndType(uri, type)
+                            .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION));
+                } catch (Exception e) { ImapNotes3.ShowMessage(R.string.Invalid_Message, editText, 3); }
+            }).show();
+        } catch (Exception e) { ImapNotes3.ShowMessage(R.string.Invalid_Message, editText, 3); }
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        if (isFinishing() && originalSnapshot != null && !saving) originalSnapshot.delete();
     }
 
     private void Share() {
@@ -1067,6 +1188,7 @@ public class NoteDetailActivity extends AppCompatActivity implements AdapterView
     }
 
     public void saveChangesDialog() {
+        if (saving) return;
         Log.d(TAG, "saveChangesDialog");
         if (textChanged) {
             new AlertDialog.Builder(this)
