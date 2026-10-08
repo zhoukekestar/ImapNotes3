@@ -235,12 +235,12 @@ public class SyncUtils {
         if (oauth && (!"imap.gmail.com".equalsIgnoreCase(account.server) ||
                 !"993".equals(account.portnum) || account.security != Security.SSL_TLS))
             throw new IOException("Google OAuth requires imap.gmail.com:993 with TLS");
-        String secret = oauth ? de.niendo.ImapNotes3.Miscs.GoogleAccountAuth.token(context, account.username) : account.password;
+        String secret = oauth ? de.niendo.ImapNotes3.Miscs.GoogleAccountAuth.token(context, account.username, account.googleAccountType) : account.password;
         ImapNotesResult result = ConnectToRemote(account.username, secret, account.server,
                 account.portnum, account.security, account.GetImapFolder(), account.GetCopyImapFolderName(), threadID);
         if (oauth && authenticationFailed) {
-            de.niendo.ImapNotes3.Miscs.GoogleAccountAuth.invalidate(context, secret);
-            secret = de.niendo.ImapNotes3.Miscs.GoogleAccountAuth.token(context, account.username);
+            de.niendo.ImapNotes3.Miscs.GoogleAccountAuth.invalidate(context, secret, account.googleAccountType);
+            secret = de.niendo.ImapNotes3.Miscs.GoogleAccountAuth.token(context, account.username, account.googleAccountType);
             result = ConnectToRemote(account.username, secret, account.server, account.portnum,
                     account.security, account.GetImapFolder(), account.GetCopyImapFolderName(), threadID);
         }

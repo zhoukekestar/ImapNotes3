@@ -51,6 +51,7 @@ public class ImapNotesAccount {
     @NonNull
     public final String password;
     public boolean googleOAuth;
+    public String googleAccountType = de.niendo.ImapNotes3.Miscs.GoogleAccountAuth.ACCOUNT_TYPE;
     @NonNull
     public final String server;
     @NonNull
@@ -105,6 +106,8 @@ public class ImapNotesAccount {
         username = am.getUserData(account, ConfigurationFieldNames.UserName);
         password = am.getPassword(account);
         googleOAuth = "google".equals(am.getUserData(account, ConfigurationFieldNames.Authentication));
+        String savedGoogleType = am.getUserData(account, ConfigurationFieldNames.GoogleAccountType);
+        if (savedGoogleType != null && !savedGoogleType.isEmpty()) googleAccountType = savedGoogleType;
         server = am.getUserData(account, ConfigurationFieldNames.Server);
         portnum = am.getUserData(account, ConfigurationFieldNames.PortNumber);
         security = Security.from(am.getUserData(account, ConfigurationFieldNames.Security));

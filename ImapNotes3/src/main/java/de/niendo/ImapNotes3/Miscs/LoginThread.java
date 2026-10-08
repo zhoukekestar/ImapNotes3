@@ -118,6 +118,7 @@ public class LoginThread extends AsyncTask<Void, Void, Result<String>> {
                              @NonNull Account account) {
         am.setPassword(account, ImapNotesAccount.googleOAuth ? null : ImapNotesAccount.password);
         am.setUserData(account, ConfigurationFieldNames.Authentication, ImapNotesAccount.googleOAuth ? "google" : "password");
+        am.setUserData(account, ConfigurationFieldNames.GoogleAccountType, ImapNotesAccount.googleOAuth ? ImapNotesAccount.googleAccountType : null);
         am.setUserData(account, ConfigurationFieldNames.UserName, ImapNotesAccount.username);
         am.setUserData(account, ConfigurationFieldNames.Server, ImapNotesAccount.server);
         am.setUserData(account, ConfigurationFieldNames.PortNumber, ImapNotesAccount.portnum);
@@ -138,4 +139,3 @@ public class LoginThread extends AsyncTask<Void, Void, Result<String>> {
     }
 
 }
-

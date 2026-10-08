@@ -18,7 +18,10 @@
         android:name="android.permission.WRITE_EXTERNAL_STORAGE"
         android:maxSdkVersion="32" />
 
-    <queries><package android:name="com.google.android.gms" /></queries>
+    <queries>
+        <package android:name="com.google.android.gms" />
+        <package android:name="app.revanced.android.gms" />
+    </queries>
 
     <application
         android:name=".ImapNotes3"

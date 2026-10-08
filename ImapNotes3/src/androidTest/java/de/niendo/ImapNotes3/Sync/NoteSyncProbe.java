@@ -77,7 +77,7 @@ public final class NoteSyncProbe {
             properties.setProperty("mail.imaps.timeout", "30000");
             try (Store store = Session.getInstance(properties).getStore("imaps")) {
                 store.connect(account.server, Integer.parseInt(account.portnum), account.username,
-                        GoogleAccountAuth.token(context, account.username));
+                        GoogleAccountAuth.token(context, account.username, account.googleAccountType));
                 if ("roundtrip".equals(mode)) roundtrip(instrumentation, saved, account, store, result);
                 ArrayList<String> folders = new ArrayList<>();
                 for (Folder folder : store.getDefaultFolder().list("*")) {

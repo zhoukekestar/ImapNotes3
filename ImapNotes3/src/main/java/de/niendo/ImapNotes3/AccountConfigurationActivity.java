@@ -88,6 +88,7 @@ public class AccountConfigurationActivity extends AccountAuthenticatorActivity i
     private static final int GOOGLE_CONSENT = 82;
     private boolean googleAuthorized;
     private boolean googleAuthorizationPending;
+    private String googleAccountType;
     private final OnClickListener clickListenerRemove = new View.OnClickListener() {
         @Override
         public void onClick(View v) {
@@ -157,6 +158,7 @@ public class AccountConfigurationActivity extends AccountAuthenticatorActivity i
   */
     //@Override
     public void onFinishPerformed(@NonNull Result<String> result) {
+        if (isFinishing() || isDestroyed()) return;
         if (result.succeeded) {
             Intent intent = new Intent();
             intent.putExtra(ListActivity.EDIT_ITEM_ACCOUNTNAME, GetTextViewText(accountnameTextView));
@@ -362,6 +364,7 @@ public class AccountConfigurationActivity extends AccountAuthenticatorActivity i
         LinearLayout layout = findViewById(R.id.buttonsLayout);
         LinearLayout googleControls = findViewById(R.id.googleAuthControls);
         googleLogin = new com.google.android.material.checkbox.MaterialCheckBox(this);
+        googleAccountType = de.niendo.ImapNotes3.Miscs.GoogleAccountAuth.preferredAccountType(this);
         googleLogin.setText(R.string.google_login);
         googleControls.addView(googleLogin);
         Button chooseGoogle = new com.google.android.material.button.MaterialButton(this, null,
@@ -372,7 +375,7 @@ public class AccountConfigurationActivity extends AccountAuthenticatorActivity i
         chooseGoogle.setOnClickListener(v -> {
             try {
                 startActivityForResult(AccountManager.newChooseAccountIntent(null, null,
-                        new String[]{de.niendo.ImapNotes3.Miscs.GoogleAccountAuth.ACCOUNT_TYPE},
+                        new String[]{de.niendo.ImapNotes3.Miscs.GoogleAccountAuth.preferredAccountType(this)},
                         getString(R.string.google_help), null, null, null), GOOGLE_PICKER);
             } catch (Exception e) {
                 showGoogleError();
@@ -414,6 +417,9 @@ public class AccountConfigurationActivity extends AccountAuthenticatorActivity i
             accountnameTextView.setEnabled(false);
             usernameTextView.setText(GetConfigValue(ConfigurationFieldNames.UserName));
             googleLogin.setChecked("google".equals(GetConfigValue(ConfigurationFieldNames.Authentication)));
+            String savedGoogleType = GetConfigValue(ConfigurationFieldNames.GoogleAccountType);
+            googleAccountType = savedGoogleType == null || savedGoogleType.isEmpty() ?
+                    de.niendo.ImapNotes3.Miscs.GoogleAccountAuth.ACCOUNT_TYPE : savedGoogleType;
             //passwordTextView.setText(accountManager.getPassword(myAccount));
             serverTextView.setText(GetConfigValue(ConfigurationFieldNames.Server));
             portnumTextView.setText(GetConfigValue(ConfigurationFieldNames.PortNumber));
@@ -457,6 +463,11 @@ public class AccountConfigurationActivity extends AccountAuthenticatorActivity i
             layout.addView(buttonView);
         }
 
+        if (savedInstanceState != null) {
+            googleAccountType = savedInstanceState.getString("googleAccountType", googleAccountType);
+            googleLogin.setChecked(savedInstanceState.getBoolean("googleLogin", googleLogin.isChecked()));
+        }
+
         // Don't display keyboard when on note detail, only if user touches the screen
         getWindow().setSoftInputMode(
                 WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN
@@ -490,17 +501,20 @@ public class AccountConfigurationActivity extends AccountAuthenticatorActivity i
 
     // DoLogin method is defined in account_selection.xml (account_selection layout)
     private void DoLogin() {
+        if (isFinishing() || isDestroyed()) return;
         Log.d(TAG, "DoLogin");
 
         if (googleLogin.isChecked() && !googleAuthorized) {
             if (googleAuthorizationPending) return;
             googleAuthorizationPending = true;
             de.niendo.ImapNotes3.Miscs.GoogleAccountAuth.authorize(this,
-                    GetTextViewText(usernameTextView), GOOGLE_CONSENT, () -> {
+                    GetTextViewText(usernameTextView), googleAccountType, GOOGLE_CONSENT, () -> {
+                        if (isFinishing() || isDestroyed()) return;
                         googleAuthorizationPending = false;
                         googleAuthorized = true;
                         CheckNameAndLogIn();
                     }, message -> {
+                        if (isFinishing() || isDestroyed()) return;
                         googleAuthorizationPending = false;
                         showGoogleError(message);
                     });
@@ -530,6 +544,7 @@ public class AccountConfigurationActivity extends AccountAuthenticatorActivity i
                 GetTextViewText(copyImapFolderNameTextView),
                 GetCheckBoxValue(copyImapFolderCheckBox));
         ImapNotesAccount.googleOAuth = googleLogin.isChecked();
+        ImapNotesAccount.googleAccountType = googleAccountType;
         // No need to check for valid numbers because the field only allows digits.  But it is
         // possible to remove all characters which causes the program to crash.  The easiest fix is
         // to add a zero at the beginning so that we are guaranteed to be able to parse it but that
@@ -546,8 +561,16 @@ public class AccountConfigurationActivity extends AccountAuthenticatorActivity i
     }
 
     private void showGoogleError(String message) {
+        if (isFinishing() || isDestroyed()) return;
         new AlertDialog.Builder(this).setMessage(message)
                 .setPositiveButton(android.R.string.ok, null).show();
+    }
+
+    @Override
+    protected void onSaveInstanceState(Bundle state) {
+        state.putString("googleAccountType", googleAccountType);
+        state.putBoolean("googleLogin", googleLogin.isChecked());
+        super.onSaveInstanceState(state);
     }
 
     @Override
@@ -555,7 +578,9 @@ public class AccountConfigurationActivity extends AccountAuthenticatorActivity i
         super.onActivityResult(requestCode, resultCode, data);
         if (requestCode == GOOGLE_PICKER && resultCode == RESULT_OK && data != null) {
             String email = data.getStringExtra(AccountManager.KEY_ACCOUNT_NAME);
-            if (email != null) {
+            String type = data.getStringExtra(AccountManager.KEY_ACCOUNT_TYPE);
+            if (email != null && de.niendo.ImapNotes3.Miscs.GoogleAccountAuth.supportedAccountType(type)) {
+                googleAccountType = type;
                 usernameTextView.setText(email);
                 googleLogin.setChecked(true);
                 googleAuthorized = false;

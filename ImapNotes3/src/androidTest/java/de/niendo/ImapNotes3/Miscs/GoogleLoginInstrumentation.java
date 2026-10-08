@@ -8,6 +8,7 @@ import android.content.Intent;
 import android.os.Bundle;
 
 import de.niendo.ImapNotes3.ListActivity;
+import de.niendo.ImapNotes3.AccountConfigurationActivity;
 import de.niendo.ImapNotes3.Data.ConfigurationFieldNames;
 import de.niendo.ImapNotes3.Data.ImapNotesAccount;
 import de.niendo.ImapNotes3.Sync.SyncUtils;
@@ -48,13 +49,13 @@ public final class GoogleLoginInstrumentation extends Instrumentation {
             if (accounts.getPassword(saved) != null) throw new IllegalStateException("OAuth password stored");
             passed++;
             ImapNotesAccount account = new ImapNotesAccount(saved, getTargetContext());
-            String cached = GoogleAccountAuth.token(getTargetContext(), account.username);
+            String cached = GoogleAccountAuth.token(getTargetContext(), account.username, account.googleAccountType);
             if (cached.isEmpty()) throw new IllegalStateException("No cached token");
             passed++;
             connect(account);
             passed++;
-            GoogleAccountAuth.invalidate(getTargetContext(), cached);
-            String refreshed = GoogleAccountAuth.token(getTargetContext(), account.username);
+            GoogleAccountAuth.invalidate(getTargetContext(), cached, account.googleAccountType);
+            String refreshed = GoogleAccountAuth.token(getTargetContext(), account.username, account.googleAccountType);
             if (refreshed.isEmpty()) throw new IllegalStateException("No refreshed token");
             passed++;
             connect(account);
@@ -65,7 +66,21 @@ public final class GoogleLoginInstrumentation extends Instrumentation {
             waitForIdleSync();
             if (list.isFinishing() || list.isDestroyed()) throw new IllegalStateException("List launch failed");
             passed++;
-            result.putString("result", "PASS: saved account, no stored password, cached IMAP login, refreshed IMAP login, list launch");
+            Activity setup = startActivitySync(new Intent(getTargetContext(), AccountConfigurationActivity.class)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+            java.util.concurrent.atomic.AtomicInteger staleCallbacks = new java.util.concurrent.atomic.AtomicInteger();
+            runOnMainSync(() -> {
+                // Force an asynchronous authenticator failure, then close its recipient page.
+                GoogleAccountAuth.authorize(setup, "missing-account@invalid.example", account.googleAccountType, 9999,
+                        staleCallbacks::incrementAndGet, message -> staleCallbacks.incrementAndGet());
+                setup.finish();
+            });
+            android.os.SystemClock.sleep(1500);
+            waitForIdleSync();
+            if (staleCallbacks.get() != 0) throw new IllegalStateException("Callback delivered to closed setup page");
+            passed++;
+            result.putString("accountType", account.googleAccountType);
+            result.putString("result", "PASS: saved account, no stored password, cached IMAP login, refreshed IMAP login, list launch, closed-page callback");
             result.putInt("checksPassed", passed);
             finish(Activity.RESULT_OK, result);
         } catch (Exception error) {

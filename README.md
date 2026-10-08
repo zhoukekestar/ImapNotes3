@@ -2,7 +2,7 @@
 
 此 fork 增加系统 microG / Google 账号的 Gmail OAuth 登录，并修复附件保留和同步失败时的数据处理。
 
-在账号设置中点击“选择 Google 账号”，选择系统 microG 中已有的账号，再授权 Gmail 邮箱访问。不支持仅供 ReVanced 使用的 GmsCore。普通 IMAP 邮箱仍可使用密码或应用专用密码。
+在账号设置中点击“选择 Google 账号”，选择系统 microG 中已有的账号，再授权 Gmail 邮箱访问。已支持官方标准 microG，以及官方签名的 Morphe MicroG RE 7.1.1（`app.revanced` 账号）；安装受支持的 microG 时优先选择它。其他改签或未知来源的 GmsCore 不会被自动信任。普通 IMAP 邮箱仍可使用密码或应用专用密码。
 
 Google 登录还需要在 Google Cloud 的 Google Auth Platform 中创建 **Android OAuth 客户端**，注册包名 `io.github.zhoukekestar.imapnotes3` 和当前 APK 签名证书的 SHA-1。可用 `apksigner verify --print-certs <APK路径>` 获取指纹；debug 和 release 签名需分别注册。测试模式下，将登录账号加入测试用户，并配置 `https://mail.google.com/` 邮箱访问范围。仅安装 microG 不会完成应用注册，Google 会返回 `UNREGISTERED_ON_API_CONSOLE`。[Google 配置文档](https://support.google.com/cloud/answer/15549257)
 
@@ -22,7 +22,7 @@ Release 构建从环境变量读取 `ANDROID_KEYSTORE_PATH`、`ANDROID_KEYSTORE_
 
 GitHub Actions 已包含测试和签名 APK 发布流程。在仓库 Secrets 中配置 `ANDROID_KEYSTORE_BASE64`（签名文件的 Base64）、`ANDROID_KEYSTORE_PASSWORD`、`ANDROID_KEY_ALIAS`、`ANDROID_KEY_PASSWORD`，然后推送版本 tag，或手动运行 Signed APK release 并指定已有 tag。Release 作为预发布提供 APK 与 SHA256SUMS。后续版本必须沿用同一签名密钥。
 
-运行 `scripts/verify-release-apk.sh <APK路径> v1.4.8-microg.2` 检查签名、包名、版本和非调试标记。
+运行 `scripts/verify-release-apk.sh <APK路径> v1.4.8-microg.3` 检查签名、包名、版本和非调试标记。
 
 回归测试覆盖 MIME 往返、附件字节、CID 图片、纯文本转义、原文件写入失败、上传确认丢失、删除重试和冲突判断。既有翻译缺失保留为 lint 警告。microG 登录及 Gmail Notes 创建、修改和双向同步已在独立 Android 15 模拟器验证，物理设备和 Apple 客户端显示仍需分别验证。[发布说明](docs/RELEASE-NOTES.md)
 
