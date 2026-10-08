@@ -72,6 +72,7 @@ public class ImapNotes3 extends Application {
     public void onCreate() {
         super.onCreate();
         mContext = getApplicationContext();
+        de.niendo.ImapNotes3.Miscs.NoteMime.configureHandlers();
     }
 
     private final Thread.UncaughtExceptionHandler defaultUEH;

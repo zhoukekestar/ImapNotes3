@@ -336,10 +336,10 @@ public class NoteDetailActivity extends AppCompatActivity implements AdapterView
 
     private void SetupRichEditor() {
         editText.setEditorBackgroundColor(0); // otherwise it will not work in dark mode
-        editText.setPadding(10, 10, 10, 10);
+        editText.setPadding(24, 20, 24, 32);
         editText.setEditorFontSize(18);
         //    editText.setBackground("https://raw.githubusercontent.com/wasabeef/art/master/chip.jpg");
-        editText.setPlaceholder(getString(R.string.placeholder));
+        editText.setPlaceholder(getString(R.string.editor_hint));
         editText.LoadFont("Alita Brush", "Alita Brush.ttf");
         if (!editText.hasFocus()) editText.focusEditor();
         editText.setOnTextChangeListener(text -> {

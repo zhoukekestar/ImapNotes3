@@ -53,7 +53,6 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;
 import java.util.ArrayList;
 import java.util.Date;
@@ -448,24 +447,9 @@ public class SyncUtils {
 
         String title = "";
         try {
-            title = notesMessage.getSubject();
+            title = de.niendo.ImapNotes3.Miscs.NoteMime.subject(notesMessage);
         } catch (Exception e) {
             Log.e(TAG, "getSubject failed", e);
-        }
-
-        // Some servers (such as posteo.de) don't encode non us-ascii characters in subject
-        // This is a workaround to handle them
-        // "lä ö ë" subject should be stored as =?charset?encoding?encoded-text?=
-        // either =?utf-8?B?bMOkIMO2IMOr?=  -> Quoted printable
-        // or =?utf-8?Q?l=C3=A4 =C3=B6 =C3=AB?=  -> Base64
-        // Hard coding the wrong servers is not possible, as some subjects are correct encoded, and some not
-        try {
-            String[] rawvalue = notesMessage.getHeader("Subject");
-            if (rawvalue != null && rawvalue[0] != null && (!(rawvalue[0].contains("=?utf")))) {
-                title = new String(title.getBytes(StandardCharsets.ISO_8859_1));
-            }
-        } catch (Exception e) {
-            Log.e(TAG, "subject2title failed", e);
         }
 
         // Get INTERNALDATE
@@ -564,9 +548,9 @@ public class SyncUtils {
     private void OpenRemoteIMAPNotesFolder(int mode) throws MessagingException {
         // FIX for Race Condition..needs more work
         // sendMessageToRemote sometime closes the working folder
-        if (!remoteIMAPNotesFolder.isOpen()) {
-            remoteIMAPNotesFolder.open(Folder.READ_WRITE);
-        }
+        if (remoteIMAPNotesFolder.isOpen() && remoteIMAPNotesFolder.getMode() != mode)
+            remoteIMAPNotesFolder.close(false);
+        if (!remoteIMAPNotesFolder.isOpen()) remoteIMAPNotesFolder.open(mode);
     }
 
     /* Copy all notes from the IMAP server to the local directory using the UID as the file name.

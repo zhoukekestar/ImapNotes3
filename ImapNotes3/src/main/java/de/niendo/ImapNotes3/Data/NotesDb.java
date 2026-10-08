@@ -196,6 +196,15 @@ public class NotesDb extends SQLiteOpenHelper {
         db.close();
     }
 
+    public synchronized void UpdateTitle(String uid, String accountName, String title) {
+        SQLiteDatabase db = getWritableDatabase();
+        ContentValues values = new ContentValues();
+        values.put(COL_TITLE_NOTE, title);
+        db.update(TABLE_NAME_NOTES, values, COL_NUMBER + "=? AND " + COL_ACCOUNT_NAME + "=?",
+                new String[]{uid, accountName});
+        db.close();
+    }
+
     public synchronized String GetDate(@NonNull String uid,
                                        @NonNull String accountname) {
        /* Returns a string representing the modification time of the note.

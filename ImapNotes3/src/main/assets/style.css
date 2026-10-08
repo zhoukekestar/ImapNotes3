@@ -1,0 +1,137 @@
+/**
+ * Copyright (C) 2022-2023 peter@niendo.de
+ * Copyright (C) 2015 Wasabeef
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+@charset "UTF-8";
+
+:root {
+    color-scheme: light dark;
+}
+
+html {
+    height: 100%;
+}
+
+body {
+    min-height: 100%;
+    overflow: auto;
+    font: -apple-system-body;
+}
+
+body, h1, p, ul, ol {
+    margin: 0;
+}
+
+div {
+    display: block;
+    position: static;
+}
+
+#editor {
+    -webkit-user-select: auto !important;
+    -webkit-tap-highlight-color: rgba(0, 0, 0, 0);
+}
+
+#editor:focus {
+    outline: 0px solid transparent;
+}
+
+@media (prefers-color-scheme: dark) {
+    body, #editor {
+    }
+}
+
+.placeholder[placeholder]:after {
+    content: attr(placeholder);
+    position: absolute;
+    top: 0px;
+    color: #cccccc;
+}
+
+#editor {
+    min-height: 100%;
+    height: 100%;
+    overflow: auto;
+    display: block;
+    font-size: 12pt;
+}
+
+input[type=checkbox] {
+    transform: scale(1.4);
+    margin-right: 9px;
+}
+
+/* #responsive-image {
+    width: 100%;
+    height: auto;
+}
+
+video {
+    width: 100%  !important;
+    height: auto !important;
+}
+*/
+
+table {overflow-x: scroll;}
+th, td {max-width: 200px; min-width:50px;}
+table, td, th{border-collapse:collapse; border:1px solid #777;}
+td{padding:5px 10px; height:35px;}
+
+.collapsible {
+  background-color: #777;
+  color: white;
+  cursor: pointer;
+  padding: 10px;
+  width: 100%;
+  border: none;
+  text-align: left;
+  outline: none;
+  font-size: 17px;
+}
+
+.active, .collapsible:hover {
+  background-color: #555;
+}
+
+.collapsible:after {
+  content: '\002B';
+  color: white;
+  font-weight: bold;
+  float: right;
+  margin-left: 5px;
+}
+
+.active:after {
+  content: "\2212";
+}
+
+.content {
+  padding: 0 15px;
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.2s ease-out;
+  background-color: #f1f1f1;
+  font-size: 12pt;
+}
+
+/* Comfortable typography for the note editor; MIME content stays unchanged. */
+body { font-family: -apple-system, BlinkMacSystemFont, "Roboto", "Noto Sans", sans-serif; line-height: 1.65; }
+#editor { box-sizing: border-box; overflow-wrap: anywhere; }
+#editor p { margin: 0 0 .8em; }
+#editor ul, #editor ol { padding-left: 1.4em; }
+#editor img { max-width: 100%; height: auto; }
+.placeholder[placeholder]:after { color: #81786c; }
+@media (prefers-color-scheme: dark) { .placeholder[placeholder]:after { color: #b4aea4; } }

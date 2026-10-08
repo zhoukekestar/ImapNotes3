@@ -1,7 +1,8 @@
 <resources>
-    <string name="google_login">Gmail with system Google / microG account</string>
+    <string name="google_login">Sign in with Google</string>
     <string name="google_choose_account">Choose Google account</string>
     <string name="google_auth_required">Add a Google account in system microG settings, then authorize Gmail access here.</string>
+    <string name="google_auth_not_registered">This app is not registered for Google OAuth. The developer must configure Google sign-in before you can authorize Gmail.</string>
     <string name="google_help">Uses the system Google authenticator (standard microG or Google Play services). ReVanced GmsCore accounts are not supported. Gmail authorization allows full mailbox access for IMAP.</string>
     <string name="attachments">Attachments</string>
     <string name="save_failed">Unable to save locally. Your edits are still open.</string>

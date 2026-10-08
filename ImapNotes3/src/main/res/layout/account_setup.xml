@@ -1,223 +1,199 @@
 <?xml version="1.0" encoding="utf-8"?>
-<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+<ScrollView
+    xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:id="@+id/scrollView"
     android:layout_width="fill_parent"
     android:layout_height="fill_parent"
-    android:orientation="vertical">
-
+    android:orientation="vertical"
+    android:fillViewport="true"
+    android:background="@color/ActionBgColor">
+  <LinearLayout
+      android:layout_width="fill_parent"
+      android:layout_height="wrap_content"
+      android:orientation="vertical"
+      android:padding="20dp">
+    <TextView
+        android:id="@+id/heading"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="8dp"
+        android:text="@string/add_account"
+        android:textAppearance="?android:attr/textAppearanceLarge"
+        android:textSize="24sp"
+        android:fontFamily="sans-serif-medium"
+        android:textColor="@color/ActionTxtColor" />
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="@string/account_setup_body"
+        android:textSize="14sp"
+        android:textColor="@color/secondaryText"
+        android:layout_marginBottom="16dp" />
     <LinearLayout
+        android:id="@+id/googleAuthControls"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="12dp"
+        android:background="@drawable/account_card"
+        android:layout_marginBottom="16dp" />
+    <com.google.android.material.textfield.TextInputLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+        android:layout_marginBottom="8dp"
+        android:hint="@string/account_name">
+      <com.google.android.material.textfield.TextInputEditText
+          android:id="@+id/accountnameEdit"
+          android:layout_width="fill_parent"
+          android:layout_height="wrap_content"
+          android:importantForAutofill="no"
+          android:inputType="textEmailAddress"
+          android:minHeight="56dp">
+
+                </com.google.android.material.textfield.TextInputEditText>
+    </com.google.android.material.textfield.TextInputLayout>
+    <com.google.android.material.textfield.TextInputLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+        android:layout_marginBottom="8dp"
+        android:hint="@string/username">
+      <com.google.android.material.textfield.TextInputEditText
+          android:id="@+id/usernameEdit"
+          android:minHeight="56dp"
+          android:layout_width="fill_parent"
+          android:layout_height="wrap_content"
+          android:autofillHints="AUTOFILL_HINT_USERNAME"
+          android:inputType="textEmailAddress" />
+    </com.google.android.material.textfield.TextInputLayout>
+    <com.google.android.material.textfield.TextInputLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        app:passwordToggleEnabled="true"
+        style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+        android:layout_marginBottom="8dp"
+        android:hint="@string/password"
+        android:id="@+id/passwordInput">
+      <com.google.android.material.textfield.TextInputEditText
+          android:id="@+id/passwordEdit"
+          android:layout_width="fill_parent"
+          android:layout_height="wrap_content"
+          android:autofillHints="AUTOFILL_HINT_PASSWORD"
+          android:inputType="textPassword"
+          android:minHeight="56dp" />
+    </com.google.android.material.textfield.TextInputLayout>
+    <com.google.android.material.textfield.TextInputLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+        android:layout_marginBottom="8dp"
+        android:hint="@string/server">
+      <com.google.android.material.textfield.TextInputEditText
+          android:id="@+id/serverEdit"
+          android:layout_width="fill_parent"
+          android:layout_height="wrap_content"
+          android:inputType="textNoSuggestions|text|textVisiblePassword"
+          android:minHeight="56dp" />
+    </com.google.android.material.textfield.TextInputLayout>
+    <ImageButton
+        android:id="@+id/BtnExpandAccountSettings"
         android:layout_width="fill_parent"
         android:layout_height="wrap_content"
-        android:orientation="vertical">
-
-        <TextView
-            android:id="@+id/heading"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginBottom="10dip"
-            android:text="@string/add_account"
-            android:textAppearance="?android:attr/textAppearanceLarge" />
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="@string/account_name"
-            android:textAppearance="?android:attr/textAppearanceMedium" />
-
-        <com.google.android.material.textfield.TextInputLayout
+        android:background="?attr/selectableItemBackground"
+        android:contentDescription="@string/extendedAccountSettings"
+        android:minHeight="48dp"
+        android:src="@drawable/expand_more"
+        android:tooltipText="@string/extendedAccountSettings"
+        app:tint="@color/secondaryText" />
+    <LinearLayout
+        android:id="@+id/ViewExtendedAccountSettings"
+        android:layout_width="fill_parent"
+        android:layout_height="0px"
+        android:orientation="vertical"
+        android:visibility="invisible">
+      <TextView
+          android:layout_width="wrap_content"
+          android:layout_height="wrap_content"
+          android:text="@string/security"
+          android:textAppearance="?android:attr/textAppearanceMedium" />
+      <Spinner
+          android:id="@+id/securitySpinner"
+          android:layout_width="match_parent"
+          android:layout_height="wrap_content"
+          android:minHeight="48dp" />
+      <com.google.android.material.textfield.TextInputLayout
+          android:layout_width="match_parent"
+          android:layout_height="wrap_content"
+          android:layout_marginTop="8dp"
+          style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+          android:layout_marginBottom="8dp"
+          android:hint="@string/port_number">
+        <com.google.android.material.textfield.TextInputEditText
+            android:id="@+id/portnumEdit"
             android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:layout_marginTop="5dp">
-
-            <com.google.android.material.textfield.TextInputEditText
-                android:id="@+id/accountnameEdit"
-                android:layout_width="fill_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginBottom="5dip"
-                android:hint="@string/account_name_description"
-                android:importantForAutofill="no"
-                android:inputType="textEmailAddress">
-
-                <requestFocus />
-            </com.google.android.material.textfield.TextInputEditText>
-        </com.google.android.material.textfield.TextInputLayout>
-
-        <TextView
-            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="@string/username"
-            android:textAppearance="?android:attr/textAppearanceMedium" />
-
-        <com.google.android.material.textfield.TextInputLayout
+            android:ems="10"
+            android:inputType="number"
+            android:minHeight="56dp" />
+      </com.google.android.material.textfield.TextInputLayout>
+      <TextView
+          android:layout_width="wrap_content"
+          android:layout_height="wrap_content"
+          android:text="@string/sync_interval"
+          android:textAppearance="?android:attr/textAppearanceMedium" />
+      <Spinner
+          android:id="@+id/syncintervalSpinner"
+          android:layout_width="match_parent"
+          android:layout_height="wrap_content"
+          android:minHeight="48dp" />
+      <com.google.android.material.textfield.TextInputLayout
+          android:layout_width="match_parent"
+          android:layout_height="wrap_content"
+          android:layout_marginTop="8dp"
+          style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+          android:layout_marginBottom="8dp"
+          android:hint="@string/notes_folder">
+        <com.google.android.material.textfield.TextInputEditText
+            android:id="@+id/folderEdit"
             android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:layout_marginTop="5dp">
-
-            <com.google.android.material.textfield.TextInputEditText
-                android:id="@+id/usernameEdit"
-                android:minHeight="48dp"
-                android:layout_width="fill_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginBottom="5dip"
-                android:autofillHints="AUTOFILL_HINT_USERNAME"
-                android:hint="@string/your_login_name"
-                android:inputType="textEmailAddress" />
-        </com.google.android.material.textfield.TextInputLayout>
-
-        <TextView
-            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="@string/password"
-            android:textAppearance="?android:attr/textAppearanceMedium" />
-
-
-        <com.google.android.material.textfield.TextInputLayout
+            android:inputType="text"
+            android:minHeight="56dp" />
+      </com.google.android.material.textfield.TextInputLayout>
+      <com.google.android.material.checkbox.MaterialCheckBox
+          android:id="@+id/copyImapFolder"
+          android:layout_width="match_parent"
+          android:layout_height="wrap_content"
+          android:checked="false"
+          android:orientation="horizontal"
+          android:text="@string/copyImapFolderName" />
+      <com.google.android.material.textfield.TextInputLayout
+          android:layout_width="match_parent"
+          android:layout_height="wrap_content"
+          android:layout_marginStart="30dp"
+          style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+          android:layout_marginTop="8dp"
+          android:layout_marginBottom="8dp"
+          android:hint="@string/copyImapFolderName">
+        <com.google.android.material.textfield.TextInputEditText
+            android:id="@+id/copyImapFolderName"
             android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:layout_marginTop="5dp"
-            app:passwordToggleEnabled="true">
-
-            <com.google.android.material.textfield.TextInputEditText
-                android:id="@+id/passwordEdit"
-                android:layout_width="fill_parent"
-                android:layout_height="wrap_content"
-                android:autofillHints="AUTOFILL_HINT_PASSWORD"
-                android:hint="@string/your_password"
-                android:inputType="textPassword" />
-        </com.google.android.material.textfield.TextInputLayout>
-
-
-        <TextView
-            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="@string/server"
-            android:textAppearance="?android:attr/textAppearanceMedium" />
-
-        <com.google.android.material.textfield.TextInputLayout
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:layout_marginTop="5dp">
-
-            <com.google.android.material.textfield.TextInputEditText
-                android:id="@+id/serverEdit"
-                android:layout_width="fill_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginBottom="5dip"
-                android:hint="@string/imap_notes_server"
-                android:inputType="textNoSuggestions|text|textVisiblePassword" />
-        </com.google.android.material.textfield.TextInputLayout>
-
-        <ImageButton
-            android:id="@+id/BtnExpandAccountSettings"
-            android:layout_width="fill_parent"
-            android:layout_height="wrap_content"
-            android:background="@android:color/transparent"
-            android:contentDescription="@string/extendedAccountSettings"
-            android:minHeight="48dp"
-            android:src="@drawable/expand_more"
-            android:tooltipText="@string/extendedAccountSettings" />
-
-        <LinearLayout
-            android:id="@+id/ViewExtendedAccountSettings"
-            android:layout_width="fill_parent"
-            android:layout_height="0px"
-            android:orientation="vertical"
-            android:visibility="invisible">
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="@string/security"
-                android:textAppearance="?android:attr/textAppearanceMedium" />
-
-            <Spinner
-                android:id="@+id/securitySpinner"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content" />
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="@string/port_number"
-                android:textAppearance="?android:attr/textAppearanceMedium" />
-
-            <com.google.android.material.textfield.TextInputLayout
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:layout_marginTop="5dp">
-
-                <com.google.android.material.textfield.TextInputEditText
-                    android:id="@+id/portnumEdit"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginBottom="5dip"
-                    android:ems="10"
-                    android:hint="@string/server_port_number_to_use"
-                    android:inputType="number" />
-            </com.google.android.material.textfield.TextInputLayout>
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="@string/sync_interval"
-                android:textAppearance="?android:attr/textAppearanceMedium" />
-
-            <Spinner
-                android:id="@+id/syncintervalSpinner"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content" />
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="@string/notes_folder"
-                android:textAppearance="?android:attr/textAppearanceMedium" />
-
-            <com.google.android.material.textfield.TextInputLayout
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:layout_marginTop="5dp">
-
-                <com.google.android.material.textfield.TextInputEditText
-                    android:id="@+id/folderEdit"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginBottom="5dip"
-                    android:hint="@string/notes_folder_description"
-                    android:inputType="text" />
-            </com.google.android.material.textfield.TextInputLayout>
-
-
-            <com.google.android.material.checkbox.MaterialCheckBox
-                android:id="@+id/copyImapFolder"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:checked="false"
-                android:orientation="horizontal"
-                android:text="@string/copyImapFolderName" />
-
-            <com.google.android.material.textfield.TextInputLayout
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:layout_marginStart="30dp">
-
-                <com.google.android.material.textfield.TextInputEditText
-                    android:id="@+id/copyImapFolderName"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginBottom="5dip"
-                    android:inputType="text" />
-
-            </com.google.android.material.textfield.TextInputLayout>
-        </LinearLayout>
-
-        <LinearLayout
-            android:id="@+id/buttonsLayout"
-            android:layout_width="fill_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal" />
-
+            android:inputType="text"
+            android:minHeight="56dp" />
+      </com.google.android.material.textfield.TextInputLayout>
     </LinearLayout>
-
+    <LinearLayout
+        android:id="@+id/buttonsLayout"
+        android:layout_width="fill_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:layout_marginTop="16dp" />
+  </LinearLayout>
 </ScrollView>

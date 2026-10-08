@@ -61,7 +61,7 @@ import android.widget.Filter;
 import android.widget.Filterable;
 import android.widget.ImageButton;
 import android.widget.ListView;
-import android.widget.SearchView;
+import androidx.appcompat.widget.SearchView;
 import android.widget.Spinner;
 
 import de.niendo.ImapNotes3.Data.NotesDb;
@@ -138,6 +138,8 @@ public class ListActivity extends AppCompatActivity implements BackupRestore.INo
     static String[] hashFilter;
     private static ArrayList<String> hashFilterSelected = new ArrayList<>();
     private ContentObserver mObserver;
+    private AccountsUpdateListener accountsUpdateListener;
+    private androidx.activity.OnBackPressedCallback searchBackCallback;
     private SwipeRefreshLayout swipeLayout;
     // Ensure that we never have to check for null by initializing reference.
     @NonNull
@@ -171,6 +173,8 @@ public class ListActivity extends AppCompatActivity implements BackupRestore.INo
         super.onDestroy();
         foregroundHandler.removeCallbacks(foregroundSync);
         if (mObserver != null) getContentResolver().unregisterContentObserver(mObserver);
+        if (accountManager != null && accountsUpdateListener != null)
+            accountManager.removeOnAccountsUpdatedListener(accountsUpdateListener);
     }
 
     public static ArrayList<String> getAccountList() {
@@ -246,6 +250,12 @@ public class ListActivity extends AppCompatActivity implements BackupRestore.INo
         super.onCreate(savedInstanceState);
         Log.d(TAG, "onCreate");
         setContentView(R.layout.main);
+        searchBackCallback = new androidx.activity.OnBackPressedCallback(false) {
+            @Override public void handleOnBackPressed() {
+                if (actionMenu != null) actionMenu.findItem(R.id.search).collapseActionView();
+            }
+        };
+        getOnBackPressedDispatcher().addCallback(this, searchBackCallback);
         getSupportActionBar().setDisplayHomeAsUpEnabled(false);
         getSupportActionBar().setHomeButtonEnabled(false);
         getSupportActionBar().setElevation(0); // or other
@@ -258,8 +268,9 @@ public class ListActivity extends AppCompatActivity implements BackupRestore.INo
         ImapNotes3.setContent(findViewById(android.R.id.content));
 
         ListActivity.accountManager = AccountManager.get(getApplicationContext());
+        accountsUpdateListener = new AccountsUpdateListener();
         ListActivity.accountManager.addOnAccountsUpdatedListener(
-                new AccountsUpdateListener(), null, true);
+                accountsUpdateListener, null, true);
 
         spinnerList = new ArrayAdapter<>
                 (this, R.layout.account_spinner_item, ListActivity.accountList);
@@ -276,6 +287,8 @@ public class ListActivity extends AppCompatActivity implements BackupRestore.INo
 
         listview = findViewById(R.id.notesList);
         listview.setAdapter(this.listToView);
+        listview.setEmptyView(findViewById(R.id.emptyNotes));
+        findViewById(R.id.emptyCreateNote).setOnClickListener(v -> newNote());
 
         listview.setTextFilterEnabled(true);
 
@@ -317,6 +330,9 @@ public class ListActivity extends AppCompatActivity implements BackupRestore.INo
 
         // Getting SwipeContainerLayout
         swipeLayout = findViewById(R.id.swipeContainer);
+        swipeLayout.setColorSchemeColors(getColor(R.color.accent));
+        swipeLayout.setOnChildScrollUpCallback((parent, child) -> listview.canScrollVertically(-1));
+        findViewById(R.id.syncStatus).setOnClickListener(v -> TriggerSync(false));
         // Adding Listener
         swipeLayout.setOnRefreshListener(new SwipeRefreshLayout.OnRefreshListener() {
             @Override
@@ -339,7 +355,8 @@ public class ListActivity extends AppCompatActivity implements BackupRestore.INo
                 // boolean isSynced = ImapNotes3.intent.getBooleanExtra(SYNCED, false);
                 String errorMessage = ImapNotes3.intent.getStringExtra(SYNCED_ERR_MSG);
                 // SyncInterval syncInterval = SyncInterval.from(ImapNotes3.intent.getStringExtra(SYNCINTERVAL));
-                if (accountName.equals(getSelectedAccountName())) {
+                if (getSelectedAccountName().equals(accountName)) {
+                    updateSyncStatus();
                     /*
                     if (isSynced) {
                         Date date = new Date();
@@ -392,6 +409,7 @@ public class ListActivity extends AppCompatActivity implements BackupRestore.INo
         foregroundHandler.removeCallbacks(foregroundSync);
         foregroundHandler.postDelayed(foregroundSync, 60_000L);
         Check_Action_Send();
+        updateSyncStatus();
     }
 
     @Override
@@ -567,6 +585,7 @@ public class ListActivity extends AppCompatActivity implements BackupRestore.INo
         menuItem.setOnActionExpandListener(new MenuItem.OnActionExpandListener() {
             @Override
             public boolean onMenuItemActionExpand(MenuItem item) {
+                searchBackCallback.setEnabled(true);
                 //searchView.requestFocus(); - doesn't work properly
                 searchView.setIconifiedByDefault(false);
                 searchView.setIconified(false);
@@ -577,9 +596,11 @@ public class ListActivity extends AppCompatActivity implements BackupRestore.INo
 
             @Override
             public boolean onMenuItemActionCollapse(MenuItem item) {
+                searchBackCallback.setEnabled(false);
                 mFilterString = "";
                 searchView.clearFocus();
                 listToView.ResetFilterData(noteList);
+                RefreshList();
                 return true;
             }
         });
@@ -627,7 +648,7 @@ public class ListActivity extends AppCompatActivity implements BackupRestore.INo
             return;
         }
 
-        if (action.equals(Intent.ACTION_SEND)) {
+        if (Intent.ACTION_SEND.equals(action)) {
             intentActionSend = (Intent) intent.clone();
             intentActionSend.setClass(this, NoteDetailActivity.class);
             intentActionSend.setFlags(0);
@@ -639,8 +660,8 @@ public class ListActivity extends AppCompatActivity implements BackupRestore.INo
                         startActivityForResult(intentActionSend, ListActivity.NEW_BUTTON);
                         setIntentAsProcessed();
                     });
-        } else if (action.equals(Intent.ACTION_SEND_MULTIPLE)) {
-            if (intent.getType().equals("message/rfc822")) {
+        } else if (Intent.ACTION_SEND_MULTIPLE.equals(action)) {
+            if ("message/rfc822".equals(intent.getType())) {
                 Intent finalIntent = intent;
                 ImapNotes3.ShowAction(listview, R.string.insert_as_new_note, R.string.ok, 0,
                         () -> {
@@ -662,6 +683,9 @@ public class ListActivity extends AppCompatActivity implements BackupRestore.INo
             return;
         }
         swipeLayout.setRefreshing(true);
+        android.widget.TextView status = findViewById(R.id.syncStatus);
+        status.setText(R.string.sync_running);
+        status.setTextColor(getColor(R.color.accent));
         Bundle settingsBundle = new Bundle();
         settingsBundle.putBoolean(ContentResolver.SYNC_EXTRAS_MANUAL, true);
         settingsBundle.putBoolean(ContentResolver.SYNC_EXTRAS_EXPEDITED, true);
@@ -765,6 +789,28 @@ public class ListActivity extends AppCompatActivity implements BackupRestore.INo
         String accountName = getSelectedAccountName();
         listToView.setAccountName(accountName);
         RefreshList(accountName);
+        updateSyncStatus();
+    }
+
+    private void updateSyncStatus() {
+        android.widget.TextView status = findViewById(R.id.syncStatus);
+        if (status == null) return;
+        SharedPreferences preferences = getSharedPreferences(
+                ImapNotes3.RemoveReservedChars(getSelectedAccountName()), MODE_PRIVATE);
+        String error = preferences.getString("LastSyncError", "");
+        long time = preferences.getLong("LastSuccessfulSync", 0L);
+        if (!error.isEmpty()) {
+            status.setText(R.string.sync_failure);
+            status.setTextColor(getColor(R.color.syncError));
+        } else if (time > 0L) {
+            String date = android.text.format.DateUtils.getRelativeTimeSpanString(time,
+                    System.currentTimeMillis(), android.text.format.DateUtils.MINUTE_IN_MILLIS).toString();
+            status.setText(getString(R.string.sync_success, date));
+            status.setTextColor(getColor(R.color.secondaryText));
+        } else {
+            status.setText(R.string.sync_ready);
+            status.setTextColor(getColor(R.color.secondaryText));
+        }
     }
 
     @Override
@@ -955,6 +1001,7 @@ public class ListActivity extends AppCompatActivity implements BackupRestore.INo
 
         @Override
         public void onAccountsUpdated(@NonNull Account[] myAccounts) {
+            if (isFinishing() || isDestroyed()) return;
             Log.d(TAG, "onAccountsUpdated");
             List<String> newList;
 

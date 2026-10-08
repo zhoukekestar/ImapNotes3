@@ -1,26 +1,27 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="fill_parent"
     android:layout_height="wrap_content"
     android:background="@color/EditorMenuBgColor"
     android:orientation="horizontal"
     android:padding="5dp">
-
-    <ImageView
-        android:id="@+id/row_icon_dummy"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:padding="5dp"
-        android:scaleType="center"
-        android:contentDescription="@string/undo"
-        android:src="@drawable/undo" />
-
-    <de.niendo.ImapNotes3.Miscs.NDSpinner
-        android:id="@+id/row_spinner_dummy"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:background="@color/EditorMenuBgColor"
-        android:contentDescription="@string/bg_color"
-        android:title="@string/bg_color"
-        android:visibility="invisible" />
+  <ImageView
+      android:id="@+id/row_icon_dummy"
+      android:layout_width="wrap_content"
+      android:layout_height="wrap_content"
+      android:padding="5dp"
+      android:scaleType="center"
+      android:contentDescription="@string/undo"
+      android:src="@drawable/undo"
+      app:tint="@color/EditorTxtColor" />
+  <de.niendo.ImapNotes3.Miscs.NDSpinner
+      android:id="@+id/row_spinner_dummy"
+      android:layout_width="wrap_content"
+      android:layout_height="wrap_content"
+      android:background="@color/EditorMenuBgColor"
+      android:contentDescription="@string/bg_color"
+      android:title="@string/bg_color"
+      android:visibility="invisible" />
 </LinearLayout>

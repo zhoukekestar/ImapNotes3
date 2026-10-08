@@ -85,7 +85,9 @@ public class AccountConfigurationActivity extends AccountAuthenticatorActivity i
     private AccountManager accountManager;
     private CheckBox googleLogin;
     private static final int GOOGLE_PICKER = 81;
+    private static final int GOOGLE_CONSENT = 82;
     private boolean googleAuthorized;
+    private boolean googleAuthorizationPending;
     private final OnClickListener clickListenerRemove = new View.OnClickListener() {
         @Override
         public void onClick(View v) {
@@ -358,12 +360,15 @@ public class AccountConfigurationActivity extends AccountAuthenticatorActivity i
         }
 
         LinearLayout layout = findViewById(R.id.buttonsLayout);
-        googleLogin = new CheckBox(this);
+        LinearLayout googleControls = findViewById(R.id.googleAuthControls);
+        googleLogin = new com.google.android.material.checkbox.MaterialCheckBox(this);
         googleLogin.setText(R.string.google_login);
-        layout.addView(googleLogin, 0);
-        Button chooseGoogle = new Button(this);
+        googleControls.addView(googleLogin);
+        Button chooseGoogle = new com.google.android.material.button.MaterialButton(this, null,
+                com.google.android.material.R.attr.materialButtonOutlinedStyle);
         chooseGoogle.setText(R.string.google_choose_account);
-        layout.addView(chooseGoogle, 1);
+        googleControls.addView(chooseGoogle, new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
         chooseGoogle.setOnClickListener(v -> {
             try {
                 startActivityForResult(AccountManager.newChooseAccountIntent(null, null,
@@ -376,6 +381,7 @@ public class AccountConfigurationActivity extends AccountAuthenticatorActivity i
         googleLogin.setOnCheckedChangeListener((button, checked) -> {
             googleAuthorized = false;
             passwordTextView.setEnabled(!checked);
+            findViewById(R.id.passwordInput).setVisibility(checked ? android.view.View.GONE : android.view.View.VISIBLE);
             usernameTextView.setEnabled(!checked);
             serverTextView.setEnabled(!checked);
             securitySpinner.setEnabled(!checked);
@@ -422,28 +428,29 @@ public class AccountConfigurationActivity extends AccountAuthenticatorActivity i
             String myTempStr = GetConfigValue(ConfigurationFieldNames.copyImapFolder);
             copyImapFolderCheckBox.setChecked(myTempStr != null && myTempStr.equals("true") && !(GetConfigValue(ConfigurationFieldNames.copyImapFolderName).isEmpty()));
 
-            Button buttonAbort = new Button(this);
+            Button buttonAbort = secondaryButton();
             buttonAbort.setText(R.string.cancel);
             Log.d(TAG, "Set onclick listener abort");
             buttonAbort.setOnClickListener(clickListenerAbort);
             layout.addView(buttonAbort);
-            Button buttonRemove = new Button(this);
+            Button buttonRemove = secondaryButton();
             buttonRemove.setText(R.string.delete);
+            buttonRemove.setTextColor(getColor(R.color.syncError));
             buttonRemove.setOnClickListener(clickListenerRemove);
             layout.addView(buttonRemove);
-            Button buttonSave = new Button(this);
+            Button buttonSave = new com.google.android.material.button.MaterialButton(this);
             buttonSave.setText(R.string.save);
             Log.d(TAG, "Set onclick listener save");
             buttonSave.setOnClickListener(clickListenerSave);
             layout.addView(buttonSave);
         } else {
-            Button buttonAbort = new Button(this);
+            Button buttonAbort = secondaryButton();
             buttonAbort.setText(R.string.cancel);
             Log.d(TAG, "Set onclick listener abort");
             buttonAbort.setOnClickListener(clickListenerAbort);
             layout.addView(buttonAbort);
             // Here we have to create a new account
-            Button buttonView = new Button(this);
+            Button buttonView = new com.google.android.material.button.MaterialButton(this);
             buttonView.setText(R.string.check_and_create_account);
             Log.d(TAG, "Set onclick listener login");
             buttonView.setOnClickListener(clickListenerLogin);
@@ -458,6 +465,15 @@ public class AccountConfigurationActivity extends AccountAuthenticatorActivity i
 
     private TextView findTextViewById(int id) {
         return findViewById(id);
+    }
+
+    private Button secondaryButton() {
+        com.google.android.material.button.MaterialButton button =
+                new com.google.android.material.button.MaterialButton(this);
+        button.setBackgroundTintList(android.content.res.ColorStateList.valueOf(android.graphics.Color.TRANSPARENT));
+        button.setTextColor(getColor(R.color.accent));
+        button.setElevation(0);
+        return button;
     }
 
     private String GetConfigValue(@NonNull String name) {
@@ -477,11 +493,17 @@ public class AccountConfigurationActivity extends AccountAuthenticatorActivity i
         Log.d(TAG, "DoLogin");
 
         if (googleLogin.isChecked() && !googleAuthorized) {
+            if (googleAuthorizationPending) return;
+            googleAuthorizationPending = true;
             de.niendo.ImapNotes3.Miscs.GoogleAccountAuth.authorize(this,
-                    GetTextViewText(usernameTextView), () -> {
+                    GetTextViewText(usernameTextView), GOOGLE_CONSENT, () -> {
+                        googleAuthorizationPending = false;
                         googleAuthorized = true;
                         CheckNameAndLogIn();
-                    }, error -> showGoogleError());
+                    }, message -> {
+                        googleAuthorizationPending = false;
+                        showGoogleError(message);
+                    });
             return;
         }
         //password will not shown if account is edit and have to be loaded;
@@ -520,7 +542,11 @@ public class AccountConfigurationActivity extends AccountAuthenticatorActivity i
     }
 
     private void showGoogleError() {
-        new AlertDialog.Builder(this).setMessage(R.string.google_auth_required)
+        showGoogleError(getString(R.string.google_auth_required));
+    }
+
+    private void showGoogleError(String message) {
+        new AlertDialog.Builder(this).setMessage(message)
                 .setPositiveButton(android.R.string.ok, null).show();
     }
 
@@ -533,6 +559,13 @@ public class AccountConfigurationActivity extends AccountAuthenticatorActivity i
                 usernameTextView.setText(email);
                 googleLogin.setChecked(true);
                 googleAuthorized = false;
+            }
+        } else if (requestCode == GOOGLE_CONSENT) {
+            googleAuthorizationPending = false;
+            if (resultCode == RESULT_OK) {
+                googleLogin.setChecked(true);
+                googleAuthorized = false;
+                DoLogin();
             }
         }
     }

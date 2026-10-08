@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <bool name="light_system_bars">true</bool>
+    <string name="notes_library">Your notes</string>
+    <string name="sync_ready">Pull down to sync</string>
+    <string name="sync_running">Syncing with your account…</string>
+    <string name="sync_success">Synced · %1$s</string>
+    <string name="sync_failure">Sync failed · Tap to retry</string>
+    <string name="note_pending_sync">Saved locally · Waiting to sync</string>
+    <string name="notes_empty_title">A little room for your ideas</string>
+    <string name="notes_empty_body">Create a note, or pull down to sync your account. Search and filters may hide existing notes.</string>
+    <string name="account_setup_intro">Keep your notes together</string>
+    <string name="account_setup_body">Connect the same account you use in Apple Notes.</string>
+    <string name="editor_hint">A thought, a plan, a small reminder…</string>
+</resources>

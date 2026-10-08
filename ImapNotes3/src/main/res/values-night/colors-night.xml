@@ -12,23 +12,29 @@
     <color name="red">#710D05</color>
     <color name="none">@color/black</color>
 
-    <color name="ActionBgColor">#2F2F2F</color>
-    <color name="ActionTxtColor">#E8F5E9</color>
+    <color name="ActionBgColor">#1C1B19</color>
+    <color name="ActionTxtColor">#F2EEE7</color>
+    <color name="accent">#EDB85F</color>
+    <color name="accentSoft">#4C3B21</color>
+    <color name="onAccent">#30220C</color>
+    <color name="secondaryText">#B4AEA4</color>
+    <color name="outline">#423F38</color>
+    <color name="syncError">#F69C95</color>
 
-    <color name="AccountBgColor">#2F4F4F</color>
+    <color name="AccountBgColor">#292724</color>
     <color name="AccountTxtColor">@color/ActionTxtColor</color>
-    <color name="AccountHintColor">@color/ActionTxtColor</color>
+    <color name="AccountHintColor">@color/secondaryText</color>
 
-    <color name="EditorMenuBgColor">#3C3C3A</color>
+    <color name="EditorMenuBgColor">#292724</color>
     <color name="EditorTxtColor">@color/ActionTxtColor</color>
-    <color name="EditorBgColorDefault">@color/none</color>
+    <color name="EditorBgColorDefault">@color/colorSurface</color>
 
     <color name="ShareActionBgColor">#2F2F2F</color>
     <color name="ShareActionTxtColor">@color/ActionTxtColor</color>
     <color name="ShareActionActionColor">#2F7F7F</color>
 
     <color name="transparent">#00000000</color>
-    <color name="colorSurface">#3C3C3A</color>
+    <color name="colorSurface">#292724</color>
 
-    <item name="ColorMode" translatable="false" type="string">dark</item>>
+    <item name="ColorMode" translatable="false" type="string">dark</item>
 </resources>

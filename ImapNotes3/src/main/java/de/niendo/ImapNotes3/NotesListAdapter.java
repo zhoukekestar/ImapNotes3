@@ -298,7 +298,12 @@ public class NotesListAdapter extends BaseAdapter implements Filterable {
     }
 
     private void setBgColor(@NonNull RelativeLayout v, @ColorInt int bgColor) {
-        v.setBackgroundColor(bgColor);
+        android.graphics.drawable.GradientDrawable card = new android.graphics.drawable.GradientDrawable();
+        card.setColor(bgColor);
+        float density = mContext.getResources().getDisplayMetrics().density;
+        card.setCornerRadius(16 * density);
+        card.setStroke(Math.max(1, (int) density), mContext.getColor(R.color.outline));
+        v.findViewById(R.id.noteCard).setBackground(card);
     }
 
     private void setBgColor(@NonNull TextView v, @ColorInt int bgColor) {
@@ -369,6 +374,9 @@ public class NotesListAdapter extends BaseAdapter implements Filterable {
             if (v != null) {
                 final Object data = dataSet.get(mFrom[i]);
                 String text = data == null ? "" : data.toString();
+                if (to[i] == R.id.noteLastChange && dataSet.get(OneNote.UID) != null &&
+                        dataSet.get(OneNote.UID).toString().startsWith("-"))
+                    text = mContext.getString(R.string.note_pending_sync);
                 String bgColor = dataSet.get(mBgColor) == null ? "none" : dataSet.get(mBgColor).toString();
 
                 int bgColorNr;
@@ -405,7 +413,7 @@ public class NotesListAdapter extends BaseAdapter implements Filterable {
                             setTxtColor((TextView) v, txtColor);
                         } else {
                             // time & date
-                            setTxtColor((TextView) v, ColorUtils.blendARGB(txtColor, bgColorNr, 0.5f));
+                            setTxtColor((TextView) v, ColorUtils.blendARGB(txtColor, bgColorNr, 0.3f));
                         }
                         setBgColor((RelativeLayout) view, bgColorNr);
 

@@ -6,6 +6,8 @@ import java.security.MessageDigest;
 import java.util.*;
 import javax.mail.*;
 import javax.mail.internet.*;
+import javax.activation.CommandMap;
+import javax.activation.MailcapCommandMap;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 
@@ -17,14 +19,50 @@ public final class NoteMime {
     public static final String BASE_HASH = "X-ImapNotes3-Base-Hash";
     private NoteMime() {}
 
+    /** Android's activation lookup may miss the handlers packaged inside the mail library. */
+    public static void configureHandlers() {
+        CommandMap current = CommandMap.getDefaultCommandMap();
+        MailcapCommandMap map = current instanceof MailcapCommandMap ?
+                (MailcapCommandMap) current : new MailcapCommandMap();
+        map.addMailcap("text/plain;; x-java-content-handler=com.sun.mail.handlers.text_plain");
+        map.addMailcap("text/html;; x-java-content-handler=com.sun.mail.handlers.text_html");
+        map.addMailcap("multipart/*;; x-java-content-handler=com.sun.mail.handlers.multipart_mixed");
+        map.addMailcap("message/rfc822;; x-java-content-handler=com.sun.mail.handlers.message_rfc822");
+        CommandMap.setDefaultCommandMap(map);
+    }
+
+    private static String text(Part part) throws MessagingException, IOException {
+        Object content = part.getContent();
+        if (content instanceof String) return (String) content;
+        if (!(content instanceof InputStream)) throw new MessagingException("Unsupported text content");
+        String charset = new ContentType(part.getContentType()).getParameter("charset");
+        if (charset == null) charset = "US-ASCII";
+        try (Reader reader = new InputStreamReader((InputStream) content, MimeUtility.javaCharset(charset))) {
+            StringBuilder value = new StringBuilder();
+            char[] buffer = new char[8192];
+            int count;
+            while ((count = reader.read(buffer)) != -1) value.append(buffer, 0, count);
+            return value.toString();
+        }
+    }
+
     private static boolean attachment(Part part) throws MessagingException {
         return Part.ATTACHMENT.equalsIgnoreCase(part.getDisposition()) || part.getFileName() != null;
     }
 
+    private static boolean mimeType(Part part, String expected) throws MessagingException {
+        String type = part.getContentType();
+        // setContent/setText do not create MIME headers until saveChanges. The handler already
+        // knows the type, so an unsaved HTML draft must not be mistaken for plain text.
+        if (part.getHeader("Content-Type") == null && part.getDataHandler() != null)
+            type = part.getDataHandler().getContentType();
+        return new ContentType(type).match(expected);
+    }
+
     private static Part body(Part part, boolean html) throws MessagingException, IOException {
         if (attachment(part)) return null;
-        if (part.isMimeType(html ? "text/html" : "text/plain")) return part;
-        if (!part.isMimeType("multipart/*")) return null;
+        if (mimeType(part, html ? "text/html" : "text/plain")) return part;
+        if (!mimeType(part, "multipart/*")) return null;
         Multipart mp = (Multipart) part.getContent();
         for (int i = mp.getCount() - 1; i >= 0; i--) {
             Part found = body(mp.getBodyPart(i), html);
@@ -35,12 +73,27 @@ public final class NoteMime {
 
     public static String html(Part original) throws MessagingException, IOException {
         Part p = body(original, true);
-        if (p != null) return (String) p.getContent();
+        if (p != null) return text(p);
         p = body(original, false);
         if (p == null) throw new MessagingException("No editable note body");
         Document doc = Jsoup.parse("<html><body><pre></pre></body></html>");
-        doc.selectFirst("pre").text((String) p.getContent());
+        doc.selectFirst("pre").text(text(p));
         return doc.outerHtml();
+    }
+
+    /** RFC 2047 subjects are already decoded by JavaMail. Repair only valid unencoded UTF-8. */
+    public static String subject(Message message) throws MessagingException {
+        String decoded = message.getSubject();
+        if (decoded == null) return null;
+        String[] raw = message.getHeader("Subject");
+        if (raw == null || raw.length == 0 || raw[0].contains("=?")) return decoded;
+        for (int i = 0; i < decoded.length(); i++) if (decoded.charAt(i) > 255) return decoded;
+        try {
+            return StandardCharsets.UTF_8.newDecoder()
+                    .onMalformedInput(java.nio.charset.CodingErrorAction.REPORT)
+                    .onUnmappableCharacter(java.nio.charset.CodingErrorAction.REPORT)
+                    .decode(java.nio.ByteBuffer.wrap(decoded.getBytes(StandardCharsets.ISO_8859_1))).toString();
+        } catch (java.nio.charset.CharacterCodingException malformed) { return decoded; }
     }
 
     public static MimeMessage copy(Message original) throws MessagingException, IOException {

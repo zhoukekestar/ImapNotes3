@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="notes_library">我的笔记</string>
+    <string name="sync_ready">下拉同步笔记</string>
+    <string name="sync_running">正在同步到账号…</string>
+    <string name="sync_success">已同步 · %1$s</string>
+    <string name="sync_failure">同步失败 · 点击重试</string>
+    <string name="note_pending_sync">已保存到本地 · 等待同步</string>
+    <string name="notes_empty_title">给灵感留一点空间</string>
+    <string name="notes_empty_body">新建一条笔记，或下拉同步账号中的笔记。搜索和筛选可能隐藏已有笔记。</string>
+    <string name="account_setup_intro">让笔记聚在一起</string>
+    <string name="account_setup_body">连接你在 Apple 备忘录中使用的同一个账号。</string>
+    <string name="editor_hint">记下一个想法、计划或提醒…</string>
+</resources>

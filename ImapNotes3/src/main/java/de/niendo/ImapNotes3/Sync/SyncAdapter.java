@@ -181,6 +181,7 @@ class SyncAdapter extends AbstractThreadedSyncAdapter {
         try {
             remoteNotesManaged = syncUtils.handleRemoteNotes(account.GetRootDirAccount(),
                     storedNotes, accountArg.name);
+            if (repairCachedTitles()) remoteNotesManaged = true;
         } catch (MessagingException | IOException e) {
             errorMessage = e.getLocalizedMessage();
             syncResult.stats.numIoExceptions++;
@@ -214,6 +215,10 @@ class SyncAdapter extends AbstractThreadedSyncAdapter {
                                     boolean isSynced,
                                     String errorMessage) {
         Log.d(TAG, "NotifySyncFinished: " + isChanged + " " + isSynced);
+        android.content.SharedPreferences.Editor status = applicationContext.getSharedPreferences(
+                ImapNotes3.RemoveReservedChars(account.accountName), Context.MODE_PRIVATE).edit();
+        if (isSynced) status.putLong("LastSuccessfulSync", System.currentTimeMillis());
+        status.putString("LastSyncError", errorMessage == null ? "" : errorMessage).apply();
         if (ImapNotes3.intent == null) ImapNotes3.intent = new Intent(SyncService.SYNC_FINISHED);
         ImapNotes3.intent.putExtra(ListActivity.EDIT_ITEM_ACCOUNTNAME, account.accountName);
         ImapNotes3.intent.putExtra(ListActivity.CHANGED, isChanged);
@@ -222,6 +227,26 @@ class SyncAdapter extends AbstractThreadedSyncAdapter {
         ImapNotes3.intent.putExtra(ListActivity.SYNCED_ERR_MSG, errorMessage);
         getContext().getContentResolver().notifyChange(Uri.parse("content://" + BuildConfig.APPLICATION_ID + "/"), null, false);
 
+    }
+
+    private boolean repairCachedTitles() throws MessagingException {
+        android.content.SharedPreferences preferences = applicationContext.getSharedPreferences(
+                ImapNotes3.RemoveReservedChars(account.accountName), Context.MODE_PRIVATE);
+        if (preferences.getInt("SubjectDecodingVersion", 0) >= 1) return false;
+        java.util.ArrayList<OneNote> notes = new java.util.ArrayList<>();
+        storedNotes.GetStoredNotes(notes, account.accountName, "date DESC", null);
+        boolean changed = false;
+        for (OneNote note : notes) {
+            Message message = SyncUtils.ReadMailFromFileRootAndNew(note.GetUid(), account.GetRootDirAccount());
+            if (message == null) continue;
+            String title = de.niendo.ImapNotes3.Miscs.NoteMime.subject(message);
+            if (title != null && !title.replace("#", "").equals(note.GetTitle())) {
+                storedNotes.UpdateTitle(note.GetUid(), account.accountName, title.replace("#", ""));
+                changed = true;
+            }
+        }
+        preferences.edit().putInt("SubjectDecodingVersion", 1).apply();
+        return changed;
     }
 
     /* It is possible for this function to throw exceptions; the original code caught

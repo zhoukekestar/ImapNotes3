@@ -1,0 +1,13 @@
+INSTRUMENTATION_RESULT: configuredFolder=Notes
+INSTRUMENTATION_RESULT: create=PASS: local save and pending queue
+INSTRUMENTATION_RESULT: createdTestNotes=ImapNotes3 创建同步测试 1008-194957; ImapNotes3 下载同步测试 1008-195548
+INSTRUMENTATION_RESULT: download=PASS: remote multipart Apple-format note downloaded with Unicode
+INSTRUMENTATION_RESULT: edit=PASS: saved edit, verified replacement, no duplicate
+INSTRUMENTATION_RESULT: localNotes=6
+INSTRUMENTATION_RESULT: notesFolders=Notes: messages=6, appleNotes=6
+INSTRUMENTATION_RESULT: passed=true
+INSTRUMENTATION_RESULT: repeatSync=PASS: no duplicate messages
+INSTRUMENTATION_RESULT: result=PASS: roundtrip note folder check
+INSTRUMENTATION_RESULT: uiSave=PASS: editor UI save uploaded with matching content
+INSTRUMENTATION_RESULT: upload=PASS: server content, Apple header and unique message
+INSTRUMENTATION_CODE: -1
