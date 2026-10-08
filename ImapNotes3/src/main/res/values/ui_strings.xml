@@ -12,4 +12,22 @@
     <string name="account_setup_intro">Keep your notes together</string>
     <string name="account_setup_body">Connect the same account you use in Apple Notes.</string>
     <string name="editor_hint">A thought, a plan, a small reminder…</string>
+    <string name="email_address">Email address</string>
+    <string name="more_account_settings">More settings</string>
+    <string name="provider_configured">%1$s Mail detected. Server settings have been filled in.</string>
+    <string name="server_configured">Server settings have been filled in. You can adjust them in More settings.</string>
+    <string name="server_custom_configured">Using your custom server settings in More settings.</string>
+    <string name="authorization_code">Email authorization code</string>
+    <string name="authorization_code_hint">Enable IMAP in your mailbox settings and enter its authorization code here.</string>
+    <string name="authorization_code_help">How to get an authorization code</string>
+    <string name="authorization_code_steps">1. Sign in to your mailbox in a browser.\n2. Open Settings, enable IMAP service, and generate an authorization code.\n3. Enter your full email address and that code in ImapNotes3.</string>
+    <string name="open_mail_help">Open mailbox help</string>
+    <string name="login_google">Authorizing your Google account…</string>
+    <string name="login_connecting">Connecting to your mailbox and preparing note sync…</string>
+    <string name="login_authorizing_button">Authorizing…</string>
+    <string name="login_connecting_button">Connecting…</string>
+    <string name="login_email_required">Enter your email address or choose a Google account.</string>
+    <string name="login_password_required">Enter your password or email authorization code.</string>
+    <string name="login_server_required">Enter a server, or use a full email address to fill it in automatically.</string>
+    <string name="login_port_invalid">Enter a port between 1 and 65535.</string>
 </resources>

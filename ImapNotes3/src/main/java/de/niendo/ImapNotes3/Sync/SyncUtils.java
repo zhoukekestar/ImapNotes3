@@ -329,6 +329,8 @@ public class SyncUtils {
             //session.setDebug(true);
             store = session.getStore(proto);
             store.connect(server, username, password);
+            ImapClientIdentity.send((com.sun.mail.imap.IMAPStore) store,
+                    de.niendo.ImapNotes3.BuildConfig.VERSION_NAME);
             //res.hasUIDPLUS = ((IMAPStore) store).hasCapability("UIDPLUS");
             //Log.v(TAG, "has UIDPLUS="+res.hasUIDPLUS);
 

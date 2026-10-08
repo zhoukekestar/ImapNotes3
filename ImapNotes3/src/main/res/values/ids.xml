@@ -1,5 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <item name="accountLoginButton" type="id" />
+    <item name="accountCancelButton" type="id" />
+    <item name="googleChooseAccount" type="id" />
     <item name="action_font_size" type="id" />
     <item name="action_font_family" type="id" />
     <item name="action_txt_color" type="id" />

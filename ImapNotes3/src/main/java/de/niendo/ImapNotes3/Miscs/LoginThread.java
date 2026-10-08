@@ -60,12 +60,14 @@ public class LoginThread extends AsyncTask<Void, Void, Result<String>> {
     @NonNull
     protected Result<String> doInBackground(Void... none) {
         Log.d(TAG, "doInBackground");
+        if (isCancelled()) return new Result<>("Cancelled", false);
         boolean newFolder = false;
         try {
             SyncUtils syncUtils = new SyncUtils();
             ImapNotesResult res = syncUtils.ConnectToRemote(ImapNotesAccount,
                     accountConfigurationActivity, THREAD_ID);
             syncUtils.DisconnectFromRemote();
+            if (isCancelled()) return new Result<>("Cancelled", false);
             if (res.returnCode == ImapNotesResult.ResultCodeImapFolderCreated) {
                 newFolder = true;
             } else if (res.returnCode != ImapNotesResult.ResultCodeSuccess) {

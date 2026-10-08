@@ -11,4 +11,22 @@
     <string name="account_setup_intro">让笔记聚在一起</string>
     <string name="account_setup_body">连接你在 Apple 备忘录中使用的同一个账号。</string>
     <string name="editor_hint">记下一个想法、计划或提醒…</string>
+    <string name="email_address">邮箱地址</string>
+    <string name="more_account_settings">更多设置</string>
+    <string name="provider_configured">已识别 %1$s 邮箱，服务器设置已自动填好。</string>
+    <string name="server_configured">服务器设置已自动填写，可在“更多设置”中调整。</string>
+    <string name="server_custom_configured">正在使用“更多设置”中的自定义服务器配置。</string>
+    <string name="authorization_code">邮箱授权码</string>
+    <string name="authorization_code_hint">请先在邮箱设置中开启 IMAP 服务，并在这里填写生成的授权码。</string>
+    <string name="authorization_code_help">如何获取授权码</string>
+    <string name="authorization_code_steps">1. 在浏览器中登录邮箱。\n2. 进入设置，开启 IMAP 服务并生成授权码。\n3. 在 ImapNotes3 填写完整邮箱地址和该授权码。</string>
+    <string name="open_mail_help">打开邮箱帮助</string>
+    <string name="login_google">正在授权 Google 账号…</string>
+    <string name="login_connecting">正在连接邮箱并准备笔记同步…</string>
+    <string name="login_authorizing_button">正在授权…</string>
+    <string name="login_connecting_button">正在连接…</string>
+    <string name="login_email_required">请输入邮箱地址，或选择 Google 账号。</string>
+    <string name="login_password_required">请输入密码或邮箱授权码。</string>
+    <string name="login_server_required">请输入服务器，或使用完整邮箱地址自动填写。</string>
+    <string name="login_port_invalid">请输入 1 到 65535 之间的端口号。</string>
 </resources>

@@ -16,10 +16,14 @@ import de.niendo.ImapNotes3.Sync.SyncUtils;
 /** Opt-in integration probe using a Google account already authorized in the app's UI. */
 public final class GoogleLoginInstrumentation extends Instrumentation {
     private String noteMode;
+    private boolean accountSetup;
     @Override public void onCreate(Bundle arguments) {
         super.onCreate(arguments);
-        if (arguments != null) noteMode = arguments.getString("noteMode");
-        if (noteMode == null && (arguments == null || !"true".equals(arguments.getString("googleLogin")))) {
+        if (arguments != null) {
+            noteMode = arguments.getString("noteMode");
+            accountSetup = "true".equals(arguments.getString("accountSetup"));
+        }
+        if (!accountSetup && noteMode == null && (arguments == null || !"true".equals(arguments.getString("googleLogin")))) {
             Bundle result = new Bundle();
             result.putString("result", "Skipped: requires -e googleLogin true and prior UI consent");
             finish(Activity.RESULT_CANCELED, result);
@@ -29,6 +33,11 @@ public final class GoogleLoginInstrumentation extends Instrumentation {
     }
 
     @Override public void onStart() {
+        if (accountSetup) {
+            Bundle result = AccountSetupProbe.run(this);
+            finish(result.getBoolean("passed") ? Activity.RESULT_OK : Activity.RESULT_CANCELED, result);
+            return;
+        }
         if (noteMode != null) {
             Bundle result = de.niendo.ImapNotes3.Sync.NoteSyncProbe.run(this, noteMode);
             finish(result.getBoolean("passed") ? Activity.RESULT_OK : Activity.RESULT_CANCELED, result);
@@ -70,8 +79,8 @@ public final class GoogleLoginInstrumentation extends Instrumentation {
                     .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
             java.util.concurrent.atomic.AtomicInteger staleCallbacks = new java.util.concurrent.atomic.AtomicInteger();
             runOnMainSync(() -> {
-                // Force an asynchronous authenticator failure, then close its recipient page.
-                GoogleAccountAuth.authorize(setup, "missing-account@invalid.example", account.googleAccountType, 9999,
+                // Complete authentication asynchronously, then close its recipient page.
+                GoogleAccountAuth.authorize(setup, account.username, account.googleAccountType, 9999,
                         staleCallbacks::incrementAndGet, message -> staleCallbacks.incrementAndGet());
                 setup.finish();
             });
