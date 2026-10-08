@@ -1,0 +1,20 @@
+Verifies
+Verified using v1 scheme (JAR signing): false
+Verified using v2 scheme (APK Signature Scheme v2): true
+Verified using v3 scheme (APK Signature Scheme v3): false
+Verified using v3.1 scheme (APK Signature Scheme v3.1): false
+Verified using v3.2 scheme (APK Signature Scheme v3.2): false
+Verified using v4 scheme (APK Signature Scheme v4): false
+Verified for SourceStamp: false
+Number of signers: 1
+V2 Signer: certificate DN: CN=zhoukekestar ImapNotes3
+V2 Signer: certificate SHA-256 digest: bbd6b00902f05f23cb16e8ef768d86c913fcf31fcb22a79ece65d758e47c1357
+V2 Signer: certificate SHA-1 digest: aaf5dee6e18cff2660f119953a6ca1c4e5ec8e74
+V2 Signer: certificate MD5 digest: 80bffbbc41edf2df79455a1984a40779
+V2 Signer: key algorithm: RSA
+V2 Signer: key size (bits): 4096
+V2 Signer: public key SHA-256 digest: e9c4881751be47854268bc17bf8c958247f4bfbb61bc79a2a38d1351c36dba3a
+V2 Signer: public key SHA-1 digest: e0d2fbae6719c869dbe0957d196c7d07f55d2c75
+V2 Signer: public key MD5 digest: 04f9ad95a28d8e904d19d35578468b2b
+Verified package, version 1.4.8-microg.4, and non-debuggable release APK.
+Verified versionCode 10411 and original release certificate SHA-256 bbd6b00902f05f23cb16e8ef768d86c913fcf31fcb22a79ece65d758e47c1357.
