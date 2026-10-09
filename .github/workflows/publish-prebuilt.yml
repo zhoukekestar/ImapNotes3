@@ -1,0 +1,69 @@
+name: Publish verified test APK
+on:
+  push:
+    branches: ['codex/release-delivery/**']
+permissions:
+  contents: write
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Verify source tag and artifact identity
+        run: |
+          python - <<'PY'
+          import json,hashlib,pathlib,subprocess
+          root=pathlib.Path('release-assets')
+          spec=json.loads((root/'release.json').read_text())
+          build=json.loads((root/'BUILD-INFO.json').read_text())
+          actual=subprocess.check_output(['git','rev-parse',spec['tag']+'^{commit}'],text=True).strip()
+          assert actual == spec['source_commit'] == build['commit']
+          source_notes=subprocess.check_output(['git','show',actual+':docs/RELEASE-NOTES.md'],text=True)
+          expected_notes=source_notes.split('\n# ImapNotes3 ',1)[0].strip()+'\n'
+          assert (root/'RELEASE-NOTES.md').read_text() == expected_notes
+          assert build['tag'] == spec['tag'] == 'v1.4.8-microg.6'
+          assert build['version'] == spec['version'] == '1.4.8-microg.6'
+          assert build['certificate_sha256'] == spec['certificate_sha256'] == 'bbd6b00902f05f23cb16e8ef768d86c913fcf31fcb22a79ece65d758e47c1357'
+          assert sum(int(t['tests']) for t in build['tests']) == spec['test_count'] == 62
+          assert all(int(t['failures']) == 0 and int(t['errors']) == 0 for t in build['tests'])
+          assert build['lint'].get('Error',0) == 0 and build['lint'].get('Fatal',0) == 0
+          assert all(int(t.get('skipped',0)) == 0 for t in build['tests'])
+          assert build['versionCode'] == spec['versionCode'] == 10413
+          apk=root/('ImapNotes3-'+spec['version']+'-release.apk')
+          assert hashlib.sha256(apk.read_bytes()).hexdigest() == spec['sha256']
+          PY
+          (cd release-assets && sha256sum --check SHA256SUMS)
+      - name: Verify APK signature and package
+        run: |
+          python - <<'PY'
+          import json,pathlib,subprocess,os
+          root=pathlib.Path('release-assets');spec=json.loads((root/'release.json').read_text())
+          sdk=pathlib.Path(os.environ['ANDROID_HOME'])/'build-tools'
+          dirs=sorted([d for d in sdk.iterdir() if (d/'apksigner').is_file()],key=lambda d:tuple(int(p) for p in d.name.split('.') if p.isdigit()))
+          tools=dirs[-1]
+          apk=str(root/('ImapNotes3-'+spec['version']+'-release.apk'))
+          signed=subprocess.check_output([str(tools/'apksigner'),'verify','--verbose','--print-certs',apk],text=True)
+          print(signed)
+          assert spec['certificate_sha256'] in signed
+          badging=subprocess.check_output([str(tools/'aapt'),'dump','badging',apk],text=True)
+          assert "name='"+spec['package']+"'" in badging
+          assert "versionName='"+spec['version']+"'" in badging
+          assert "versionCode='"+str(spec['versionCode'])+"'" in badging
+          assert 'application-debuggable' not in badging
+          PY
+      - name: Publish prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag=$(python -c 'import json; print(json.load(open("release-assets/release.json"))["tag"])')
+          if gh release view "$tag" >/dev/null 2>&1; then
+            echo '::error::Release already exists; refusing to modify or replace it.'
+            exit 1
+          fi
+          gh release create "$tag" --verify-tag --prerelease --title "ImapNotes3 $tag" --notes-file release-assets/RELEASE-NOTES.md
+          gh release upload "$tag" release-assets/*.apk release-assets/SHA256SUMS release-assets/BUILD-INFO.json release-assets/SIGNING-CERTIFICATE.txt
+      - name: Report failed publication
+        if: failure()
+        run: echo '::error::Verified APK publication failed; inspect source/identity checks, runner Android tools or repository Actions write permissions.'
