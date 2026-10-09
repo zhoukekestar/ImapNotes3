@@ -93,6 +93,7 @@
         <activity
             android:name=".NoteDetailActivity"
             android:configChanges="orientation|keyboardHidden|screenSize"
+            android:windowSoftInputMode="stateAlwaysHidden|adjustResize"
             android:parentActivityName=".ListActivity">
 
             <!-- What is this meta-data for?  There doesn't seem to be any code that uses it -->

@@ -18,8 +18,8 @@ android {
     //noinspection GroovyMissingReturnStatement
     defaultConfig {
         applicationId "io.github.zhoukekestar.imapnotes3"
-        versionCode 10414
-        versionName "1.4.8-microg.7"
+        versionCode 10415
+        versionName "1.4.8-microg.8"
         targetSdkVersion 35
         minSdkVersion 25
         testInstrumentationRunner "de.niendo.ImapNotes3.Miscs.GoogleLoginInstrumentation"
@@ -104,6 +104,11 @@ dependencies {
     implementation 'com.github.niendo1:richeditor-android:3.0.4'
     implementation 'org.jetbrains:annotations:26.1.0'
     implementation 'org.jsoup:jsoup:1.23.1'
+    implementation 'com.vladsch.flexmark:flexmark:0.64.8'
+    implementation 'com.vladsch.flexmark:flexmark-html2md-converter:0.64.8'
+    implementation 'com.vladsch.flexmark:flexmark-ext-tables:0.64.8'
+    implementation 'com.vladsch.flexmark:flexmark-ext-gfm-strikethrough:0.64.8'
+    implementation 'com.vladsch.flexmark:flexmark-ext-gfm-tasklist:0.64.8'
     implementation 'io.github.eltos:simpledialogfragments:3.10'
     implementation 'com.github.woheller69:FreeDroidWarn:V1.14'
     testImplementation 'junit:junit:4.13.2'

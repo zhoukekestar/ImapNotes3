@@ -170,12 +170,19 @@ public final class NoteMime {
     }
     public static String displayHtml(Message original) throws MessagingException, IOException {
         String html = html(original);
+        for (java.util.Map.Entry<String, String> image : inlineImageUrls(original).entrySet())
+            html = html.replace(image.getKey(), image.getValue());
+        return html;
+    }
+
+    public static java.util.Map<String, String> inlineImageUrls(Message original) throws MessagingException, IOException {
+        java.util.Map<String, String> urls = new java.util.LinkedHashMap<>();
         for (Part p : attachments(original)) {
             String[] ids = p.getHeader("Content-ID");
             if (ids != null && p.isMimeType("image/*"))
-                html = html.replace("cid:" + ids[0].replace("<", "").replace(">", ""), dataUrl(p));
+                urls.put("cid:" + ids[0].replace("<", "").replace(">", ""), dataUrl(p));
         }
-        return html;
+        return urls;
     }
 
     public static String hash(Message original) throws MessagingException, IOException {

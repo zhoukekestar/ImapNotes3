@@ -41,6 +41,10 @@ public final class NoteSyncProbe {
     private NoteSyncProbe() {}
 
     public static Bundle run(Instrumentation instrumentation, String mode, String requestedServer) {
+        return run(instrumentation, mode, requestedServer, null);
+    }
+
+    public static Bundle run(Instrumentation instrumentation, String mode, String requestedServer, String editorTitle) {
         Bundle result = new Bundle();
         Context context = instrumentation.getTargetContext();
         try {
@@ -55,6 +59,11 @@ public final class NoteSyncProbe {
             }
             if (saved == null) throw new IllegalStateException("No matching saved mailbox account");
             ImapNotesAccount account = new ImapNotesAccount(saved, context);
+            if ("editor".equals(mode)) {
+                if (editorTitle == null || !editorTitle.startsWith("ImapNotes3 Editor test "))
+                    throw new IllegalArgumentException("Requires editor fixture title");
+                sync(context, saved);
+            }
             result.putString("configuredFolder", account.GetImapFolder());
             ArrayList<OneNote> local = new ArrayList<>();
             NotesDb.getInstance(context).GetStoredNotes(local, saved.name, "date DESC", null);
@@ -83,6 +92,29 @@ public final class NoteSyncProbe {
                 store.connect(account.server, Integer.parseInt(account.portnum), account.username,
                         account.googleOAuth ? GoogleAccountAuth.token(context, account.username, account.googleAccountType) : account.password);
                 ImapClientIdentity.send((com.sun.mail.imap.IMAPStore) store, de.niendo.ImapNotes3.BuildConfig.VERSION_NAME);
+                if ("editor".equals(mode)) {
+                    Folder folder = store.getFolder(account.GetImapFolder());
+                    folder.open(Folder.READ_ONLY);
+                    try {
+                        int count = 0;
+                        for (Message message : folder.getMessages()) {
+                            if (message.isSet(javax.mail.Flags.Flag.DELETED) || !editorTitle.equals(message.getSubject())) continue;
+                            count++;
+                            String html = NoteMime.html(NoteMime.copy(message));
+                            String markdown = new de.niendo.ImapNotes3.Miscs.NoteEditorDocument(html).markdown();
+                            if (!markdown.startsWith("# " + editorTitle + "\n\n") || !markdown.contains("- [x] 创建\n- [ ] 同步") ||
+                                    !markdown.contains("| --- | --- |") || !markdown.contains("```html\n<div>source</div>\n```\n") ||
+                                    !html.contains("<strong>中文与 emoji ✅</strong>"))
+                                throw new IllegalStateException("Editor remote content mismatch");
+                        }
+                        if (count != 1) throw new IllegalStateException("Editor sync duplicate or missing fixture");
+                        OneNote cached = find(context, saved, editorTitle);
+                        String html = NoteMime.html(SyncUtils.ReadMailFromFileRootAndNew(cached.GetUid(), account.GetRootDirAccount()));
+                        if (!new de.niendo.ImapNotes3.Miscs.NoteEditorDocument(html).markdown().contains("| --- | --- |"))
+                            throw new IllegalStateException("Downloaded Markdown source lost");
+                        result.putString("editorSync", "PASS: production sync twice, one remote note, HTML display and verbatim Markdown retained");
+                    } finally { folder.close(false); }
+                }
                 if ("compare".equals(mode)) {
                     com.sun.mail.imap.IMAPFolder folder = (com.sun.mail.imap.IMAPFolder) store.getFolder(account.GetImapFolder());
                     folder.open(Folder.READ_ONLY);
@@ -131,7 +163,7 @@ public final class NoteSyncProbe {
                 }
                 result.putString("notesFolders", String.join("; ", folders));
             }
-            if (!"compare".equals(mode) && !"audit".equals(mode) && !"sync".equals(mode) && !"roundtrip".equals(mode)) throw new IllegalArgumentException("Unknown noteMode");
+            if (!"editor".equals(mode) && !"compare".equals(mode) && !"audit".equals(mode) && !"sync".equals(mode) && !"roundtrip".equals(mode)) throw new IllegalArgumentException("Unknown noteMode");
             result.putBoolean("passed", true);
             result.putString("result", "PASS: " + mode + " note folder check");
         } catch (Exception error) {
@@ -147,7 +179,7 @@ public final class NoteSyncProbe {
         return result;
     }
 
-    private static void sync(Context context, Account account) {
+    public static void sync(Context context, Account account) {
         // The first connection can rebuild a changed UID namespace; the next drains pending notes.
         for (int pass = 0; pass < 2; pass++) {
             SyncResult result = new SyncResult();

@@ -1,0 +1,14 @@
+<resources>
+    <string name="editor_loading">正在载入笔记…</string>
+    <string name="editor_read_only">只读模式</string>
+    <string name="editor_editing">编辑模式</string>
+    <string name="editor_unsaved">有未保存的修改</string>
+    <string name="editor_saving">正在保存…</string>
+    <string name="editor_edit">编辑</string>
+    <string name="editor_read">阅读</string>
+    <string name="editor_rich">富文本</string>
+    <string name="editor_preview">预览</string>
+    <string name="editor_source">返回源码</string>
+    <string name="editor_html_hint">在这里编写 HTML</string>
+    <string name="editor_markdown_hint">在这里编写 Markdown</string>
+</resources>

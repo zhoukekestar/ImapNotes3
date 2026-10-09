@@ -8,7 +8,7 @@
         android:icon="@drawable/ic_action_search"
         android:title="Search"
         app:actionViewClass="androidx.appcompat.widget.SearchView"
-        app:showAsAction="always|collapseActionView" />
+        app:showAsAction="ifRoom|collapseActionView" />
 
     <!--make sure you add the collapseActionView in showsAsAction-->
 
@@ -32,13 +32,13 @@
         android:id="@+id/save"
         android:icon="@drawable/ic_action_save"
         android:title="@string/save"
-        app:showAsAction="ifRoom" />
+        app:showAsAction="always" />
 
     <item
         android:id="@+id/delete"
         android:icon="@drawable/ic_action_delete"
         android:title="@string/delete"
-        app:showAsAction="ifRoom" />
+        app:showAsAction="never" />
 
     <item android:id="@+id/attachments" android:title="@string/attachments" app:showAsAction="never" />
 
@@ -46,15 +46,15 @@
         android:id="@+id/share"
         android:icon="@drawable/ic_action_share"
         android:title="@string/share"
-        app:showAsAction="ifRoom" />
+        app:showAsAction="never" />
 
     <item
         android:id="@+id/color"
         android:icon="@drawable/ic_action_color"
         android:title="@string/color"
-        app:showAsAction="ifRoom">
+        app:showAsAction="never">
         <menu>
-            <group android:checkableBehavior="single">
+            <group android:id="@+id/editor_color_group" android:checkableBehavior="single">
                 <item
                     android:id="@+id/none"
                     android:checked="true"

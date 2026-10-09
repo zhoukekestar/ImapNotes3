@@ -19,6 +19,7 @@ public final class GoogleLoginInstrumentation extends Instrumentation {
     private String noteServer;
     private boolean accountSetup;
     private boolean mailLogin;
+    private boolean editor;
     @Override public void onCreate(Bundle arguments) {
         super.onCreate(arguments);
         if (arguments != null) {
@@ -26,8 +27,9 @@ public final class GoogleLoginInstrumentation extends Instrumentation {
             noteServer = arguments.getString("noteServer");
             accountSetup = "true".equals(arguments.getString("accountSetup"));
             mailLogin = "true".equals(arguments.getString("mailLogin"));
+            editor = "true".equals(arguments.getString("editor"));
         }
-        if (!mailLogin && !accountSetup && noteMode == null && (arguments == null || !"true".equals(arguments.getString("googleLogin")))) {
+        if (!editor && !mailLogin && !accountSetup && noteMode == null && (arguments == null || !"true".equals(arguments.getString("googleLogin")))) {
             Bundle result = new Bundle();
             result.putString("result", "Skipped: requires -e googleLogin true and prior UI consent");
             finish(Activity.RESULT_CANCELED, result);
@@ -37,6 +39,11 @@ public final class GoogleLoginInstrumentation extends Instrumentation {
     }
 
     @Override public void onStart() {
+        if (editor) {
+            Bundle result = EditorProbe.run(this, noteServer);
+            finish(result.getBoolean("passed") ? Activity.RESULT_OK : Activity.RESULT_CANCELED, result);
+            return;
+        }
         if (mailLogin) {
             Bundle result = MailLoginProbe.run(this);
             finish(result.getBoolean("passed") ? Activity.RESULT_OK : Activity.RESULT_CANCELED, result);

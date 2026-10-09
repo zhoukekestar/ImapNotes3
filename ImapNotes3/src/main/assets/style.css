@@ -135,3 +135,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Roboto", "Noto Sans", sa
 #editor img { max-width: 100%; height: auto; }
 .placeholder[placeholder]:after { color: #81786c; }
 @media (prefers-color-scheme: dark) { .placeholder[placeholder]:after { color: #b4aea4; } }
+
+/* The viewport follows Android's keyboard and rotation, rather than a cached pixel height. */
+#editor { height: auto; min-height: 100vh; overflow: visible; }
+.placeholder[placeholder]:after { pointer-events: none; }

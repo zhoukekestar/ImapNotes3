@@ -34,11 +34,20 @@ import android.os.Bundle;
 import android.text.Html;
 import android.text.InputType;
 import android.text.Spanned;
+import android.text.Editable;
+import android.text.TextWatcher;
+import android.text.method.KeyListener;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.widget.AdapterView;
+import android.widget.EditText;
+import android.widget.TextView;
+import android.view.inputmethod.InputMethodManager;
+import com.google.android.material.button.MaterialButtonToggleGroup;
+import de.niendo.ImapNotes3.Miscs.NoteEditorDocument;
+import java.util.function.Consumer;
 
 import androidx.activity.OnBackPressedCallback;
 import androidx.annotation.NonNull;
@@ -115,12 +124,22 @@ public class NoteDetailActivity extends AppCompatActivity implements AdapterView
     private boolean saving;
     private boolean noteReady;
     private boolean textChanged = false;
-    private boolean textChangedShare = false;
     @NonNull
     private String bgColor = "none";
     private String accountName = "";
     private String suid; // uid as string
     private RichEditor editText;
+    private EditText sourceText;
+    private KeyListener sourceKeyListener;
+    private NoteEditorDocument document = new NoteEditorDocument("");
+    private java.util.Map<String, String> inlineImages = java.util.Collections.emptyMap();
+    private boolean editing;
+    private boolean preview;
+    private boolean switching;
+    private boolean populatingSource;
+    private int editorFormat = R.id.editorRich;
+    private final java.util.concurrent.atomic.AtomicReference<String> richInputDraft = new java.util.concurrent.atomic.AtomicReference<>();
+    private File savedDraft;
     private String lastTag = "#";
     private List<String> tagList;
     private MenuItem itemNext;
@@ -135,6 +154,38 @@ public class NoteDetailActivity extends AppCompatActivity implements AdapterView
         getSupportActionBar().setElevation(0); // or other
         getSupportActionBar().setBackgroundDrawable(new ColorDrawable(getColor(R.color.ActionBgColor)));
         editText = findViewById(R.id.bodyView);
+        editText.addJavascriptInterface(new Object() {
+            @android.webkit.JavascriptInterface public void capture(String html) { richInputDraft.set(html); }
+        }, "ImapNotesDraft");
+        sourceText = findViewById(R.id.editorSource);
+        sourceKeyListener = sourceText.getKeyListener();
+        SetupRichEditor();
+        sourceText.addTextChangedListener(new TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) { }
+            @Override public void onTextChanged(CharSequence s, int start, int before, int count) {
+                if (!populatingSource && editing && noteReady && !saving && !switching) markChanged();
+            }
+            @Override public void afterTextChanged(Editable s) { }
+        });
+        findViewById(R.id.editorModeButton).setOnClickListener(v -> toggleEditing());
+        ((MaterialButtonToggleGroup) findViewById(R.id.editorFormats)).addOnButtonCheckedListener(
+                (group, id, checked) -> { if (checked && !switching && id != editorFormat) changeFormat(id); });
+        findViewById(R.id.editorPreview).setOnClickListener(v -> {
+            if (!noteReady || saving || switching) return;
+            switching = true;
+            hideKeyboard();
+            refreshEditorUi();
+            captureDraft(ok -> {
+                if (ok) preview = !preview;
+                switching = false;
+                showDraft();
+            });
+        });
+        if (savedInstanceState != null && savedInstanceState.getString("editor_draft") != null &&
+                restoreDraft(savedInstanceState.getString("editor_draft"))) {
+            refreshEditorUi();
+            return;
+        }
 
         Intent intent = getIntent();
         String stringres;
@@ -166,7 +217,7 @@ public class NoteDetailActivity extends AppCompatActivity implements AdapterView
 
             if (hm == null) {
                 // Entry can not opened..
-                ImapNotes3.ShowMessage(R.string.Invalid_Note, null, 3);
+                ImapNotes3.ShowMessage(R.string.Invalid_Note, editText, 3);
                 finish();
                 return;
             }
@@ -175,18 +226,21 @@ public class NoteDetailActivity extends AppCompatActivity implements AdapterView
 
             File rootDir = ImapNotes3.GetAccountDir(accountName);
             noteReady = false;
-            editText.setInputEnabled(false);
             loadExistingNote(rootDir);
         } else if (ChangeNote.equals(ActivityTypeAdd)) {   // new entry
             accountName = intent.getStringExtra(ListActivity.EDIT_ITEM_ACCOUNTNAME);
-            SetupRichEditor();
+            editing = true;
+            initializeHtml("");
         } else if (ChangeNote.equals(ActivityTypeAddShare)) {   // new Entry from Share
             accountName = intent.getStringExtra(ListActivity.EDIT_ITEM_ACCOUNTNAME);
-            SetupRichEditor();
-            processShareIntent(intent);
+            editing = true;
+            initializeHtml("", () -> processShareIntent(intent));
+        } else if (!ChangeNote.equals(ActivityTypeEdit)) {
+            editing = true;
+            initializeHtml("");
         }
-        if (!ChangeNote.equals(ActivityTypeEdit)) noteReady = true;
         ResetColors();
+        refreshEditorUi();
     }
 
     private void loadExistingNote(File rootDir) {
@@ -216,24 +270,27 @@ public class NoteDetailActivity extends AppCompatActivity implements AdapterView
             }
             final Message loaded = message;
             String html = null;
+            java.util.Map<String, String> images = java.util.Collections.emptyMap();
             String color = "none";
             try {
                 if (loaded != null) {
-                    html = de.niendo.ImapNotes3.Miscs.NoteMime.displayHtml(loaded);
+                    html = de.niendo.ImapNotes3.Miscs.NoteMime.html(loaded);
+                    images = de.niendo.ImapNotes3.Miscs.NoteMime.inlineImageUrls(loaded);
                     color = HtmlNote.GetNoteFromMessage(loaded).color;
                 }
             } catch (Exception e) { html = null; }
             final String content = html;
+            final java.util.Map<String, String> loadedImages = images;
             final String background = color;
             runOnUiThread(() -> {
                 if (isFinishing() || isDestroyed()) return;
                 if (content == null) {
-                    ImapNotes3.ShowMessage(R.string.Invalid_Message, null, 3);
+                    ImapNotes3.ShowMessage(R.string.Invalid_Message, editText, 3);
                     finish();
                     return;
                 }
                 bgColor = background;
-                SetupRichEditor();
+                inlineImages = loadedImages;
                 initializeHtml(content);
                 ResetColors();
             });
@@ -241,18 +298,224 @@ public class NoteDetailActivity extends AppCompatActivity implements AdapterView
     }
 
     private void initializeHtml(String content) {
+        initializeHtml(content, null);
+    }
+
+    private void initializeHtml(String content, Runnable afterLoad) {
         if (isFinishing() || isDestroyed()) return;
         editText.evaluateJavascript("typeof RE !== 'undefined' && RE.editor != null", ready -> {
             if (!"true".equals(ready)) {
-                editText.postDelayed(() -> initializeHtml(content), 100L);
+                editText.postDelayed(() -> initializeHtml(content, afterLoad), 100L);
                 return;
             }
             try {
-                String encoded = java.net.URLEncoder.encode(content, "UTF-8");
-                editText.evaluateJavascript("RE.setHtml(" + org.json.JSONObject.quote(encoded) +
-                        ");RE.setInputEnabled(true);", ignored -> noteReady = true);
+                document = new NoteEditorDocument(content, inlineImages);
+                String encoded = java.net.URLEncoder.encode(document.fragment(), "UTF-8");
+                editText.evaluateJavascript(richDraftScript(encoded), ignored -> {
+                    noteReady = true;
+                    refreshEditorUi();
+                    if (afterLoad != null) afterLoad.run();
+                });
             } catch (Exception e) { finish(); }
         });
+    }
+
+    private void markChanged() {
+        textChanged = true;
+        ((TextView) findViewById(R.id.editorStatus)).setText(R.string.editor_unsaved);
+    }
+
+    private String richDraftScript(String encodedHtml) {
+        richInputDraft.set(null);
+        return "RE.setHtml(" + org.json.JSONObject.quote(encodedHtml) + ");" +
+                "if(!RE.editor.draftBridge){RE.editor.draftBridge=true;RE.editor.addEventListener('input',function(){" +
+                "if(RE.editor.contentEditable==='true')ImapNotesDraft.capture(RE.editor.innerHTML);});}" +
+                "var noteStyle=document.getElementById('imapnotes3-note-style');" +
+                "if(!noteStyle){noteStyle=document.createElement('style');noteStyle.id='imapnotes3-note-style';document.head.appendChild(noteStyle);}" +
+                "noteStyle.textContent=" + org.json.JSONObject.quote(document.headStyles()) + ";";
+    }
+
+    private boolean sourceVisible() { return editorFormat != R.id.editorRich && !preview; }
+
+    private void captureDraft(Consumer<Boolean> done) {
+        if (sourceVisible()) {
+            String value = sourceText.getText().toString();
+            boolean changed = editorFormat == R.id.editorMarkdown ? document.setMarkdown(value) : document.setHtml(value);
+            if (changed) markChanged();
+            done.accept(true);
+        } else {
+            // Read the DOM directly; the library's shared callback can be overwritten by another action.
+            editText.evaluateJavascript("RE.editor.innerHTML", encoded -> {
+                if (isFinishing() || isDestroyed()) return;
+                try {
+                    Object value = new org.json.JSONTokener(encoded).nextValue();
+                    if (!(value instanceof String)) throw new IllegalStateException();
+                    if (document.setRichHtml((String) value)) markChanged();
+                    richInputDraft.set(null);
+                    done.accept(true);
+                } catch (Exception error) {
+                    switching = false;
+                    saving = false;
+                    refreshEditorUi();
+                    new AlertDialog.Builder(this).setMessage(R.string.save_failed)
+                            .setPositiveButton(android.R.string.ok, null).show();
+                    done.accept(false);
+                }
+            });
+        }
+    }
+
+    private void changeFormat(int format) {
+        if (!noteReady || saving || switching) return;
+        switching = true;
+        hideKeyboard();
+        refreshEditorUi();
+        captureDraft(ok -> {
+            if (ok) { editorFormat = format; preview = false; }
+            switching = false;
+            showDraft();
+        });
+    }
+
+    private void toggleEditing() {
+        if (!noteReady || saving || switching) return;
+        switching = true;
+        hideKeyboard();
+        refreshEditorUi();
+        captureDraft(ok -> {
+            if (ok) editing = !editing;
+            switching = false;
+            if (editing && preview) { preview = false; showDraft(); }
+            else refreshEditorUi();
+            if (editing && ok) {
+                if (sourceVisible()) { sourceText.requestFocus(); sourceText.setSelection(sourceText.length()); }
+                else { editText.requestFocus(); editText.evaluateJavascript("RE.focus();", null); }
+                View target = sourceVisible() ? sourceText : editText;
+                target.postDelayed(() -> {
+                    if (editing && !saving && !isFinishing()) ((InputMethodManager) getSystemService(INPUT_METHOD_SERVICE))
+                            .showSoftInput(target, InputMethodManager.SHOW_IMPLICIT);
+                }, 150);
+            }
+        });
+    }
+
+    private void showDraft() {
+        if (sourceVisible()) {
+            populatingSource = true;
+            sourceText.setText(editorFormat == R.id.editorMarkdown ? document.markdown() : document.html());
+            sourceText.setHint(editorFormat == R.id.editorMarkdown ? R.string.editor_markdown_hint : R.string.editor_html_hint);
+            populatingSource = false;
+            refreshEditorUi();
+        } else {
+            switching = true;
+            refreshEditorUi();
+            try {
+                String encoded = java.net.URLEncoder.encode(document.fragment(), "UTF-8");
+                editText.evaluateJavascript(richDraftScript(encoded), ignored -> {
+                    switching = false;
+                    refreshEditorUi();
+                });
+            } catch (Exception error) { switching = false; refreshEditorUi(); }
+        }
+    }
+
+    private void hideKeyboard() {
+        ((InputMethodManager) getSystemService(INPUT_METHOD_SERVICE)).hideSoftInputFromWindow(editText.getWindowToken(), 0);
+        sourceText.clearFocus();
+        editText.clearFocus();
+    }
+
+    @Override protected void onSaveInstanceState(@NonNull Bundle state) {
+        if (noteReady && !saving) {
+            try {
+                NoteEditorDocument copy = new NoteEditorDocument(document.storedHtml(), inlineImages);
+                boolean changed = false;
+                if (sourceVisible()) changed = editorFormat == R.id.editorMarkdown ?
+                        copy.setMarkdown(sourceText.getText().toString()) : copy.setHtml(sourceText.getText().toString());
+                else if (richInputDraft.get() != null) changed = copy.setRichHtml(richInputDraft.get());
+                org.json.JSONObject draft = new org.json.JSONObject();
+                draft.put("html", copy.storedHtml());
+                draft.put("account", accountName);
+                draft.put("uid", suid);
+                draft.put("background", bgColor);
+                draft.put("editing", editing);
+                draft.put("preview", preview);
+                draft.put("format", editorFormat);
+                draft.put("changed", textChanged || changed);
+                draft.put("original", originalSnapshot == null ? "" : originalSnapshot.getName());
+                if (savedDraft == null) savedDraft = File.createTempFile("editor-draft-", ".json", getCacheDir());
+                try (FileOutputStream output = new FileOutputStream(savedDraft)) {
+                    output.write(draft.toString().getBytes(StandardCharsets.UTF_8));
+                }
+                // Keep note contents out of Binder's size-limited saved-state bundle.
+                state.putString("editor_draft", savedDraft.getName());
+            } catch (Exception error) { Log.w(TAG, "Could not retain editor draft"); }
+        }
+        super.onSaveInstanceState(state);
+    }
+
+    private boolean restoreDraft(String name) {
+        if (!name.matches("editor-draft-[^/]+\\.json")) return false;
+        File file = new File(getCacheDir(), name);
+        try {
+            org.json.JSONObject draft = new org.json.JSONObject(org.apache.commons.io.FileUtils.readFileToString(file, StandardCharsets.UTF_8));
+            accountName = draft.optString("account", "");
+            suid = draft.isNull("uid") ? null : draft.optString("uid", null);
+            bgColor = draft.getString("background");
+            editing = draft.getBoolean("editing");
+            preview = draft.getBoolean("preview");
+            editorFormat = draft.getInt("format");
+            textChanged = draft.getBoolean("changed");
+            String original = draft.optString("original");
+            if (original.matches("original-note-[^/]+\\.eml")) originalSnapshot = new File(getCacheDir(), original);
+            String html = draft.getString("html");
+            new Thread(() -> {
+                try {
+                    Message snapshot = originalSnapshot == null ? null : SyncUtils.ReadMailFromFile(originalSnapshot);
+                    if (snapshot != null) inlineImages = de.niendo.ImapNotes3.Miscs.NoteMime.inlineImageUrls(snapshot);
+                } catch (Exception ignored) { }
+                runOnUiThread(() -> {
+                    if (isFinishing() || isDestroyed()) return;
+                    switching = true;
+                    ((MaterialButtonToggleGroup) findViewById(R.id.editorFormats)).check(editorFormat);
+                    switching = false;
+                    initializeHtml(html, () -> { showDraft(); ResetColors(); });
+                });
+            }, "restore-editor-draft").start();
+            file.delete();
+            return true;
+        } catch (Exception error) { return false; }
+    }
+
+    private void refreshEditorUi() {
+        boolean available = noteReady && !saving && !switching;
+        boolean richInput = available && editing && editorFormat == R.id.editorRich && !preview;
+        sourceText.setEnabled(available);
+        editText.setEnabled(available);
+        sourceText.setVisibility(sourceVisible() ? View.VISIBLE : View.GONE);
+        editText.setVisibility(sourceVisible() ? View.GONE : View.VISIBLE);
+        sourceText.setTextIsSelectable(!editing);
+        sourceText.setKeyListener(available && editing ? sourceKeyListener : null);
+        sourceText.setMovementMethod(android.text.method.ArrowKeyMovementMethod.getInstance());
+        sourceText.setFocusableInTouchMode(true);
+        sourceText.setClickable(true);
+        sourceText.setLongClickable(true);
+        findViewById(R.id.editorTools).setVisibility(richInput ? View.VISIBLE : View.GONE);
+        findViewById(R.id.editorModeButton).setEnabled(available);
+        ((TextView) findViewById(R.id.editorModeButton)).setText(editing ? R.string.editor_read : R.string.editor_edit);
+        ((TextView) findViewById(R.id.editorStatus)).setText(!noteReady || switching ? R.string.editor_loading :
+                saving ? R.string.editor_saving : textChanged ? R.string.editor_unsaved :
+                editing ? R.string.editor_editing : R.string.editor_read_only);
+        findViewById(R.id.editorProgress).setVisibility(available ? View.GONE : View.VISIBLE);
+        findViewById(R.id.editorPreview).setVisibility(editorFormat == R.id.editorRich ? View.GONE : View.VISIBLE);
+        findViewById(R.id.editorPreview).setEnabled(available);
+        ((TextView) findViewById(R.id.editorPreview)).setText(preview ? R.string.editor_source : R.string.editor_preview);
+        for (int id : new int[]{R.id.editorRich, R.id.editorHtml, R.id.editorMarkdown}) findViewById(id).setEnabled(available);
+        if (noteReady) editText.evaluateJavascript("RE.setInputEnabled(" + richInput + ");" +
+                "if(!RE.editor.readOnlyGuard){RE.editor.readOnlyGuard=true;RE.editor.addEventListener('click',function(e){" +
+                "if(RE.editor.contentEditable!=='true' && e.target.closest('input,select,textarea,button')){e.preventDefault();e.stopImmediatePropagation();}},true);" +
+                "RE.editor.addEventListener('beforeinput',function(e){if(RE.editor.contentEditable!=='true')e.preventDefault();},true);}", null);
+        invalidateOptionsMenu();
     }
 
     @Override
@@ -341,16 +604,8 @@ public class NoteDetailActivity extends AppCompatActivity implements AdapterView
         //    editText.setBackground("https://raw.githubusercontent.com/wasabeef/art/master/chip.jpg");
         editText.setPlaceholder(getString(R.string.editor_hint));
         editText.LoadFont("Alita Brush", "Alita Brush.ttf");
-        if (!editText.hasFocus()) editText.focusEditor();
         editText.setOnTextChangeListener(text -> {
-            if (text.contains("loaded"))
-                textChanged = textChangedShare;
-            if (text.contains("input"))
-                textChanged = true;
-        });
-
-        editText.setOnInitialLoadListener(ready -> {
-            editText.setEditorHeight(editText.getHeight());
+            if (noteReady && editing && !saving && !switching && text.contains("input")) markChanged();
         });
 
         editText.setOnClickListener((RichEditor.onClickListener) text -> {
@@ -388,15 +643,16 @@ public class NoteDetailActivity extends AppCompatActivity implements AdapterView
         tableSpinner.setAdapter(new EditorMenuAdapter(NoteDetailActivity.this, R.layout.editor_row, new String[5], R.id.action_table, this));
         tableSpinner.setOnItemSelectedListener(this);
 
-        findViewById(R.id.action_undo).setOnClickListener(v -> editText.undo());
-        findViewById(R.id.action_redo).setOnClickListener(v -> editText.redo());
+        findViewById(R.id.action_undo).setOnClickListener(v -> { editText.undo(); markChanged(); });
+        findViewById(R.id.action_redo).setOnClickListener(v -> { editText.redo(); markChanged(); });
 
     }
 
     @Override
     public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
         NDSpinner spinner = (NDSpinner) parent;
-        if ((view == null) || (!spinner.initIsDone)) return;
+        if ((view == null) || (!spinner.initIsDone) || !editing || !noteReady || saving || switching) return;
+        markChanged();
         switch (view.getId()) {
             case R.id.action_removeFormat:
                 editText.removeFormat();
@@ -753,6 +1009,7 @@ public class NoteDetailActivity extends AppCompatActivity implements AdapterView
     // colour.
     private void ResetColors() {
         editText.setEditorFontColor(ImapNotes3.loadPreferenceColor("EditorTxtColor", getColor(R.color.EditorTxtColor)));
+        sourceText.setTextColor(ImapNotes3.loadPreferenceColor("EditorTxtColor", getColor(R.color.EditorTxtColor)));
         int mybgColor;
         if (bgColor.equals("none")) {
             mybgColor = ImapNotes3.loadPreferenceColor("EditorBgColorDefault", getColor(R.color.EditorBgColorDefault));
@@ -775,9 +1032,14 @@ public class NoteDetailActivity extends AppCompatActivity implements AdapterView
 
     @Override
     public boolean onPrepareOptionsMenu(@NonNull Menu menu) {
-        //MenuItem item = menu.findItem(R.id.color);
         super.onPrepareOptionsMenu(menu);
-        //depending on your conditions, either enable/disable
+        boolean available = noteReady && !saving && !switching;
+        menu.findItem(R.id.save).setVisible(editing || textChanged).setEnabled(available);
+        menu.findItem(R.id.color).setVisible(editing).setEnabled(available);
+        menu.findItem(R.id.delete).setVisible(suid != null).setEnabled(available);
+        menu.findItem(R.id.share).setEnabled(available);
+        menu.findItem(R.id.attachments).setEnabled(available && originalSnapshot != null);
+        menu.findItem(R.id.itemSearch).setVisible(!sourceVisible()).setEnabled(available);
         return true;
     }
 
@@ -789,6 +1051,8 @@ public class NoteDetailActivity extends AppCompatActivity implements AdapterView
     public boolean onOptionsItemSelected(@NonNull MenuItem item) {
         final Intent intent = new Intent();
         int itemId = item.getItemId();
+        if (itemId != android.R.id.home && (!noteReady || saving || switching)) return true;
+        if (item.getGroupId() == R.id.editor_color_group && editing) markChanged();
         switch (itemId) {
             case R.id.itemSearch:
                 SearchView searchView = (SearchView) item.getActionView();
@@ -974,23 +1238,22 @@ public class NoteDetailActivity extends AppCompatActivity implements AdapterView
             return;
         }
 
-        if (saving || !noteReady) return;
+        if (saving || switching || !noteReady) return;
+        if (!textChanged && suid != null) {
+            if (finish) finish();
+            return;
+        }
         saving = true;
-        editText.setInputEnabled(false);
-        editText.setOnJSDataListener(value -> {
-            if (!saving) return;
-            editText.setOnJSDataListener(null);
-            if (value == null || "null".equals(value)) {
-                saving = false;
-                editText.setInputEnabled(true);
-                return;
-            }
+        hideKeyboard();
+        refreshEditorUi();
+        captureDraft(okToSave -> {
+            if (!okToSave) return;
             de.niendo.ImapNotes3.Miscs.UpdateThread.Action action =
                     suid == null || suid.isEmpty() ? de.niendo.ImapNotes3.Miscs.UpdateThread.Action.Insert :
                             de.niendo.ImapNotes3.Miscs.UpdateThread.Action.Update;
             new de.niendo.ImapNotes3.Miscs.UpdateThread(accountName, (ok, error) -> {
                 saving = false;
-                editText.setInputEnabled(true);
+                if (isFinishing() || isDestroyed()) return;
                 if (ok) {
                     Intent result = new Intent();
                     result.putExtra(SAVED_LOCALLY, true);
@@ -1006,12 +1269,11 @@ public class NoteDetailActivity extends AppCompatActivity implements AdapterView
                     new AlertDialog.Builder(this).setMessage(R.string.save_failed)
                             .setPositiveButton(android.R.string.ok, null).show();
                 }
+                refreshEditorUi();
             }, new java.util.ArrayList<>(), null, R.string.save, suid == null ? "" : suid,
-                    value, bgColor, getApplicationContext(), action)
+                    document.storedHtml(), bgColor, getApplicationContext(), action)
                     .withOriginalSnapshot(originalSnapshot).execute();
         });
-        editText.getHtml();
-
     }
 
     private void openAttachments() {
@@ -1048,11 +1310,20 @@ public class NoteDetailActivity extends AppCompatActivity implements AdapterView
     protected void onDestroy() {
         super.onDestroy();
         if (isFinishing() && originalSnapshot != null && !saving) originalSnapshot.delete();
+        if (isFinishing() && savedDraft != null) savedDraft.delete();
+        editText.removeJavascriptInterface("ImapNotesDraft");
+        editText.setOnTextChangeListener(null);
+        if (editText.getParent() instanceof android.view.ViewGroup)
+            ((android.view.ViewGroup) editText.getParent()).removeView(editText);
+        editText.destroy();
     }
 
     private void Share() {
         Log.d(TAG, "Share");
-        editText.setOnJSDataListener(value -> {
+        if (!noteReady || saving || switching) return;
+        captureDraft(ok -> {
+            if (!ok) return;
+            String value = document.shareHtml();
             Intent sendIntent = new Intent();
             Spanned html = Html.fromHtml(value, Html.FROM_HTML_MODE_COMPACT);
             String[] tok = html.toString().split("\n", 2);
@@ -1082,13 +1353,30 @@ public class NoteDetailActivity extends AppCompatActivity implements AdapterView
             Intent shareIntent = Intent.createChooser(sendIntent, title);
             startActivity(shareIntent);
         });
-        // data comes via callback
-        editText.getHtml();
 
     }
 
     private void processShareIntent(Intent intent) {
         Log.d(TAG, "processShareIntent");
+        if (isFinishing() || isDestroyed()) return;
+        if (!noteReady || switching) { editText.postDelayed(() -> processShareIntent(intent), 100); return; }
+        if (sourceVisible() || editorFormat != R.id.editorRich) {
+            switching = true;
+            captureDraft(ok -> {
+                if (!ok) return;
+                editorFormat = R.id.editorRich;
+                preview = false;
+                editing = true;
+                ((MaterialButtonToggleGroup) findViewById(R.id.editorFormats)).check(editorFormat);
+                switching = false;
+                showDraft();
+                editText.postDelayed(() -> processShareIntent(intent), 100);
+            });
+            return;
+        }
+        editing = true;
+        markChanged();
+        refreshEditorUi();
         // Share: Receive Data as new message
         String strAction = intent.getAction();
         if (!editText.hasFocus()) editText.focusEditor();
@@ -1177,7 +1465,6 @@ public class NoteDetailActivity extends AppCompatActivity implements AdapterView
                     }
                 }
             }
-            textChangedShare = true;
         }
     }
 

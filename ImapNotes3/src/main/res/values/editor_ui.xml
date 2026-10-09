@@ -1,0 +1,25 @@
+<resources>
+    <string name="editor_loading">Loading note…</string>
+    <string name="editor_read_only">Read only</string>
+    <string name="editor_editing">Editing</string>
+    <string name="editor_unsaved">Unsaved changes</string>
+    <string name="editor_saving">Saving…</string>
+    <string name="editor_edit">Edit</string>
+    <string name="editor_read">Read</string>
+    <string name="editor_rich">Rich text</string>
+    <string name="editor_preview">Preview</string>
+    <string name="editor_source">Back to source</string>
+    <string name="editor_html_hint">Write HTML here</string>
+    <string name="editor_markdown_hint">Write Markdown here</string>
+    <style name="EditorFormatButton" parent="Widget.Material3.Button.OutlinedButton">
+        <item name="android:layout_width">0dp</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_weight">1</item>
+        <item name="android:minWidth">0dp</item>
+        <item name="android:minHeight">48dp</item>
+        <item name="android:textAllCaps">false</item>
+        <item name="android:textSize">14sp</item>
+        <item name="android:paddingStart">4dp</item>
+        <item name="android:paddingEnd">4dp</item>
+    </style>
+</resources>
