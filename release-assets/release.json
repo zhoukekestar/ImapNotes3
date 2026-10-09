@@ -1,0 +1,10 @@
+{
+  "tag": "v1.4.8-microg.7",
+  "version": "1.4.8-microg.7",
+  "versionCode": 10414,
+  "package": "io.github.zhoukekestar.imapnotes3",
+  "source_commit": "919b0a798a228c2aacf048418359757b1b5840a7",
+  "certificate_sha256": "bbd6b00902f05f23cb16e8ef768d86c913fcf31fcb22a79ece65d758e47c1357",
+  "sha256": "2055d3d5ccc4948065d570255f1ef2aca675cc8c32cb180f18f8b1b55028a13a",
+  "test_count": 62
+}
