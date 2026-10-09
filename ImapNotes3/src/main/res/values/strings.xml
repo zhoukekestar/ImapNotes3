@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="qq_notes_storage_hint">QQ is configured. Notes are stored in Drafts; ordinary drafts are excluded.</string>
     <string name="app_name" translatable="false">ImapNotes3</string>
     <string name="new_account">New Account</string>
     <string name="new_note">New Note</string>

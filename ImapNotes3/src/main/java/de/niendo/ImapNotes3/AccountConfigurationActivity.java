@@ -568,7 +568,7 @@ public class AccountConfigurationActivity extends AccountAuthenticatorActivity i
         TextView hint = findViewById(R.id.providerHint);
         hint.setVisibility(!domain.isEmpty() && !googleLogin.isChecked() ? View.VISIBLE : View.GONE);
         String server = GetTextViewText(serverTextView);
-        hint.setText(preset != null && preset.server.equals(server) ? getString(R.string.provider_configured, preset.label)
+        hint.setText(preset == MailProviderPreset.QQ && preset.server.equals(server) ? getString(R.string.qq_notes_storage_hint) : preset != null && preset.server.equals(server) ? getString(R.string.provider_configured, preset.label)
                 : getString(server.equals(lastAutoServer) ? R.string.server_configured : R.string.server_custom_configured));
     }
 

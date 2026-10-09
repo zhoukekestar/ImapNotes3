@@ -16,14 +16,18 @@ import de.niendo.ImapNotes3.Sync.SyncUtils;
 /** Opt-in integration probe using a Google account already authorized in the app's UI. */
 public final class GoogleLoginInstrumentation extends Instrumentation {
     private String noteMode;
+    private String noteServer;
     private boolean accountSetup;
+    private boolean mailLogin;
     @Override public void onCreate(Bundle arguments) {
         super.onCreate(arguments);
         if (arguments != null) {
             noteMode = arguments.getString("noteMode");
+            noteServer = arguments.getString("noteServer");
             accountSetup = "true".equals(arguments.getString("accountSetup"));
+            mailLogin = "true".equals(arguments.getString("mailLogin"));
         }
-        if (!accountSetup && noteMode == null && (arguments == null || !"true".equals(arguments.getString("googleLogin")))) {
+        if (!mailLogin && !accountSetup && noteMode == null && (arguments == null || !"true".equals(arguments.getString("googleLogin")))) {
             Bundle result = new Bundle();
             result.putString("result", "Skipped: requires -e googleLogin true and prior UI consent");
             finish(Activity.RESULT_CANCELED, result);
@@ -33,13 +37,18 @@ public final class GoogleLoginInstrumentation extends Instrumentation {
     }
 
     @Override public void onStart() {
+        if (mailLogin) {
+            Bundle result = MailLoginProbe.run(this);
+            finish(result.getBoolean("passed") ? Activity.RESULT_OK : Activity.RESULT_CANCELED, result);
+            return;
+        }
         if (accountSetup) {
             Bundle result = AccountSetupProbe.run(this);
             finish(result.getBoolean("passed") ? Activity.RESULT_OK : Activity.RESULT_CANCELED, result);
             return;
         }
         if (noteMode != null) {
-            Bundle result = de.niendo.ImapNotes3.Sync.NoteSyncProbe.run(this, noteMode);
+            Bundle result = de.niendo.ImapNotes3.Sync.NoteSyncProbe.run(this, noteMode, noteServer);
             finish(result.getBoolean("passed") ? Activity.RESULT_OK : Activity.RESULT_CANCELED, result);
             return;
         }

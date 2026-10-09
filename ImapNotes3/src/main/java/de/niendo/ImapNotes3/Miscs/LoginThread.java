@@ -78,7 +78,8 @@ public class LoginThread extends AsyncTask<Void, Void, Result<String>> {
             final Account account = new Account(ImapNotesAccount.accountName, Utilities.PackageName);
             final AccountManager am = AccountManager.get(accountConfigurationActivity);
             accountConfigurationActivity.setResult(AccountConfigurationActivity.TO_REFRESH);
-            if (newFolder) {
+            if (newFolder || (action == AccountConfigurationActivity.Actions.EDIT_ACCOUNT &&
+                    res.imapFolderName != null && !res.imapFolderName.equals(am.getUserData(account, ConfigurationFieldNames.ImapFolder)))) {
                 // Database and folder not valid..get Data from new directory
                 SyncUtils.SetUIDValidity(account, -1L, accountConfigurationActivity);
             }
@@ -96,7 +97,7 @@ public class LoginThread extends AsyncTask<Void, Void, Result<String>> {
             result.putString(AccountManager.KEY_ACCOUNT_NAME, account.name);
             result.putString(AccountManager.KEY_ACCOUNT_TYPE, account.type);
             accountConfigurationActivity.setAccountAuthenticatorResult(result);
-            setUserData(am, account);
+            setUserData(am, account, res.imapFolderName == null ? ImapNotesAccount.GetImapFolder() : res.imapFolderName);
             // Run the Sync Adapter Periodically
             ContentResolver.setIsSyncable(account, AccountConfigurationActivity.AUTHORITY, 1);
             ContentResolver.setSyncAutomatically(account, AccountConfigurationActivity.AUTHORITY, true);
@@ -117,7 +118,7 @@ public class LoginThread extends AsyncTask<Void, Void, Result<String>> {
     }
 
     private void setUserData(@NonNull AccountManager am,
-                             @NonNull Account account) {
+                             @NonNull Account account, @NonNull String notesFolder) {
         am.setPassword(account, ImapNotesAccount.googleOAuth ? null : ImapNotesAccount.password);
         am.setUserData(account, ConfigurationFieldNames.Authentication, ImapNotesAccount.googleOAuth ? "google" : "password");
         am.setUserData(account, ConfigurationFieldNames.GoogleAccountType, ImapNotesAccount.googleOAuth ? ImapNotesAccount.googleAccountType : null);
@@ -126,7 +127,7 @@ public class LoginThread extends AsyncTask<Void, Void, Result<String>> {
         am.setUserData(account, ConfigurationFieldNames.PortNumber, ImapNotesAccount.portnum);
         am.setUserData(account, ConfigurationFieldNames.SyncInterval, ImapNotesAccount.syncInterval.name());
         am.setUserData(account, ConfigurationFieldNames.Security, ImapNotesAccount.security.name());
-        am.setUserData(account, ConfigurationFieldNames.ImapFolder, ImapNotesAccount.GetImapFolder());
+        am.setUserData(account, ConfigurationFieldNames.ImapFolder, notesFolder);
         am.setUserData(account, ConfigurationFieldNames.copyImapFolderName, ImapNotesAccount.copyImapFolderName);
         am.setUserData(account, ConfigurationFieldNames.copyImapFolder, ImapNotesAccount.copyImapFolder);
     }

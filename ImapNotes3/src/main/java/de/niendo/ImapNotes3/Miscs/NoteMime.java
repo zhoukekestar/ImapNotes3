@@ -179,6 +179,9 @@ public final class NoteMime {
     }
 
     public static String hash(Message original) throws MessagingException, IOException {
+        // Compare the canonical RFC message, rather than a server's BODY[TEXT] projection.
+        // QQ adds a CRLF to that projection which is absent from the downloaded MIME.
+        if (original instanceof com.sun.mail.imap.IMAPMessage) original = copy(original);
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
             digest.update(html(original).getBytes(StandardCharsets.UTF_8));

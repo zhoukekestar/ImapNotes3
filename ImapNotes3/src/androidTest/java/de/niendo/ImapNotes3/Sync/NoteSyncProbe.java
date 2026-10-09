@@ -13,6 +13,7 @@ import de.niendo.ImapNotes3.Data.ImapNotesAccount;
 import de.niendo.ImapNotes3.Data.NotesDb;
 import de.niendo.ImapNotes3.Data.OneNote;
 import de.niendo.ImapNotes3.Miscs.GoogleAccountAuth;
+import de.niendo.ImapNotes3.Miscs.ImapNotesResult;
 import de.niendo.ImapNotes3.Miscs.NoteMime;
 import de.niendo.ImapNotes3.Miscs.UpdateThread;
 import de.niendo.ImapNotes3.Miscs.Utilities;
@@ -39,19 +40,20 @@ import javax.mail.search.HeaderTerm;
 public final class NoteSyncProbe {
     private NoteSyncProbe() {}
 
-    public static Bundle run(Instrumentation instrumentation, String mode) {
+    public static Bundle run(Instrumentation instrumentation, String mode, String requestedServer) {
         Bundle result = new Bundle();
         Context context = instrumentation.getTargetContext();
         try {
             AccountManager accounts = AccountManager.get(context);
             Account saved = null;
             for (Account candidate : accounts.getAccountsByType(Utilities.PackageName)) {
-                if ("google".equals(accounts.getUserData(candidate, ConfigurationFieldNames.Authentication))) {
+                if (requestedServer == null ? "google".equals(accounts.getUserData(candidate, ConfigurationFieldNames.Authentication)) :
+                        requestedServer.equals(accounts.getUserData(candidate, ConfigurationFieldNames.Server))) {
                     saved = candidate;
                     break;
                 }
             }
-            if (saved == null) throw new IllegalStateException("No saved Google account");
+            if (saved == null) throw new IllegalStateException("No matching saved mailbox account");
             ImapNotesAccount account = new ImapNotesAccount(saved, context);
             result.putString("configuredFolder", account.GetImapFolder());
             ArrayList<OneNote> local = new ArrayList<>();
@@ -71,19 +73,47 @@ public final class NoteSyncProbe {
             }
             Properties properties = new Properties();
             properties.setProperty("mail.imaps.ssl.checkserveridentity", "true");
-            properties.setProperty("mail.imaps.auth.mechanisms", "XOAUTH2");
-            properties.setProperty("mail.imaps.auth.xoauth2.disable", "false");
+            if (account.googleOAuth) {
+                properties.setProperty("mail.imaps.auth.mechanisms", "XOAUTH2");
+                properties.setProperty("mail.imaps.auth.xoauth2.disable", "false");
+            }
             properties.setProperty("mail.imaps.connectiontimeout", "15000");
             properties.setProperty("mail.imaps.timeout", "30000");
             try (Store store = Session.getInstance(properties).getStore("imaps")) {
                 store.connect(account.server, Integer.parseInt(account.portnum), account.username,
-                        GoogleAccountAuth.token(context, account.username, account.googleAccountType));
-                if ("roundtrip".equals(mode)) roundtrip(instrumentation, saved, account, store, result);
+                        account.googleOAuth ? GoogleAccountAuth.token(context, account.username, account.googleAccountType) : account.password);
+                ImapClientIdentity.send((com.sun.mail.imap.IMAPStore) store, de.niendo.ImapNotes3.BuildConfig.VERSION_NAME);
+                if ("compare".equals(mode)) {
+                    com.sun.mail.imap.IMAPFolder folder = (com.sun.mail.imap.IMAPFolder) store.getFolder(account.GetImapFolder());
+                    folder.open(Folder.READ_ONLY);
+                    try {
+                        for (OneNote note : local) {
+                            if (!note.GetTitle().startsWith("ImapNotes3 创建同步测试 ") || note.GetUid().startsWith("-")) continue;
+                            Message original = SyncUtils.ReadMailFromFileRootAndNew(note.GetUid(), account.GetRootDirAccount());
+                            Message remote = folder.getMessageByUID(Long.parseLong(note.GetUid()));
+                            if (original == null || remote == null) continue;
+                            Message parsed = NoteMime.copy(remote);
+                            result.putString("imapContentType", remote.getContentType());
+                            result.putString("parsedContentType", parsed.getContentType());
+                            result.putBoolean("directHashMatches", NoteMime.hash(original).equals(NoteMime.hash(remote)));
+                            result.putBoolean("parsedHashMatches", NoteMime.hash(original).equals(NoteMime.hash(parsed)));
+                            result.putInt("cachedHtmlLength", NoteMime.html(original).length());
+                            result.putInt("imapHtmlLength", NoteMime.html(remote).length());
+                            result.putInt("parsedHtmlLength", NoteMime.html(parsed).length());
+                            break;
+                        }
+                    } finally { folder.close(false); }
+                }
+                if ("roundtrip".equals(mode)) {
+                    if (QQNotesScope.applies(account.server, account.GetImapFolder()))
+                        qqRoundtripWithOrdinaryDraft(instrumentation, saved, account, store, result);
+                    else roundtrip(instrumentation, saved, account, store, result);
+                }
                 ArrayList<String> folders = new ArrayList<>();
                 for (Folder folder : store.getDefaultFolder().list("*")) {
                     String name = folder.getFullName();
                     String lower = name.toLowerCase(Locale.ROOT);
-                    if (!lower.contains("note") && !name.contains("笔记") && !name.contains("備忘") && !name.contains("备忘")) continue;
+                    if (!name.equals(account.GetImapFolder()) && !lower.contains("note") && !name.contains("笔记") && !name.contains("備忘") && !name.contains("备忘")) continue;
                     if ((folder.getType() & Folder.HOLDS_MESSAGES) == 0) continue;
                     folder.open(Folder.READ_ONLY);
                     try {
@@ -93,7 +123,7 @@ public final class NoteSyncProbe {
                 }
                 result.putString("notesFolders", String.join("; ", folders));
             }
-            if (!"audit".equals(mode) && !"sync".equals(mode) && !"roundtrip".equals(mode)) throw new IllegalArgumentException("Unknown noteMode");
+            if (!"compare".equals(mode) && !"audit".equals(mode) && !"sync".equals(mode) && !"roundtrip".equals(mode)) throw new IllegalArgumentException("Unknown noteMode");
             result.putBoolean("passed", true);
             result.putString("result", "PASS: " + mode + " note folder check");
         } catch (Exception error) {
@@ -106,10 +136,13 @@ public final class NoteSyncProbe {
     }
 
     private static void sync(Context context, Account account) {
-        SyncResult result = new SyncResult();
-        new SyncAdapter(context).onPerformSync(account, new Bundle(),
-                AccountConfigurationActivity.AUTHORITY, null, result);
-        if (result.hasError()) throw new IllegalStateException("Production sync failed");
+        // The first connection can rebuild a changed UID namespace; the next drains pending notes.
+        for (int pass = 0; pass < 2; pass++) {
+            SyncResult result = new SyncResult();
+            new SyncAdapter(context).onPerformSync(account, new Bundle(),
+                    AccountConfigurationActivity.AUTHORITY, null, result);
+            if (result.hasError()) throw new IllegalStateException("Production sync failed");
+        }
     }
 
     private static OneNote find(Context context, Account account, String title) {
@@ -138,13 +171,13 @@ public final class NoteSyncProbe {
         try {
             ArrayList<Message> found = new ArrayList<>();
             for (Message message : folder.getMessages())
-                if (title.equals(message.getSubject())) found.add(message);
-            if (found.size() != 1) throw new IllegalStateException("Missing or duplicate test upload");
+                if (!message.isSet(javax.mail.Flags.Flag.DELETED) && title.equals(message.getSubject())) found.add(NoteMime.copy(message));
+            if (found.size() != 1) throw new IllegalStateException("Synthetic upload count: " + found.size());
             String html = NoteMime.html(found.get(0));
             if (!html.contains(expected))
                 throw new IllegalStateException("Test upload content mismatch");
             if ("编辑已同步 · 第二版".equals(expected) &&
-                    !org.jsoup.Jsoup.parse(html).select("b").text().contains("创建并上传 Gmail Notes"))
+                    !org.jsoup.Jsoup.parse(html).select("b").text().contains("创建并上传 IMAP Notes"))
                 throw new IllegalStateException("Edited HTML markup was escaped");
             if (found.get(0).getHeader("X-Uniform-Type-Identifier") == null)
                 throw new IllegalStateException("Apple note header missing");
@@ -157,16 +190,36 @@ public final class NoteSyncProbe {
         String stamp = new java.text.SimpleDateFormat("MMdd-HHmmss", Locale.ROOT).format(new Date());
         String androidTitle = "ImapNotes3 创建同步测试 " + stamp;
         String remoteTitle = "ImapNotes3 下载同步测试 " + stamp;
-        String body = "<div>" + androidTitle + "</div><div>中文与 emoji ✅</div><div><b>创建并上传 Gmail Notes</b></div>";
+        String body = "<div>" + androidTitle + "</div><div>中文与 emoji ✅</div><div><b>创建并上传 IMAP Notes</b></div>";
         ArrayList<OneNote> existing = new ArrayList<>();
         NotesDb.getInstance(context).GetStoredNotes(existing, saved.name, "date DESC", null);
         for (OneNote note : existing) if (note.GetTitle().startsWith("ImapNotes3 创建同步测试 ")) {
             androidTitle = note.GetTitle();
-            body = "<div>" + androidTitle + "</div><div>中文与 emoji ✅</div><div><b>创建并上传 Gmail Notes</b></div>";
+            body = "<div>" + androidTitle + "</div><div>中文与 emoji ✅</div><div><b>创建并上传 IMAP Notes</b></div>";
             break;
         }
         boolean previouslyCreated = false;
         for (OneNote note : existing) if (note.GetTitle().equals(androidTitle)) previouslyCreated = true;
+        if (previouslyCreated) {
+            Folder remoteFolder = store.getFolder(account.GetImapFolder());
+            remoteFolder.open(Folder.READ_ONLY);
+            boolean present = false;
+            try {
+                for (Message message : remoteFolder.getMessages())
+                    if (!message.isSet(javax.mail.Flags.Flag.DELETED) && androidTitle.equals(message.getSubject())) present = true;
+            } finally { remoteFolder.close(false); }
+            if (!present) {
+                // Recover only our synthetic fixture if an interrupted diagnostic removed its remote copy.
+                for (OneNote note : existing) if (note.GetTitle().equals(androidTitle) && !note.GetUid().startsWith("-")) {
+                    Message cached = SyncUtils.ReadMailFromFileRootAndNew(note.GetUid(), account.GetRootDirAccount());
+                    if (cached != null && NoteMime.html(cached).contains("创建并上传 IMAP Notes")) {
+                        NotesDb.getInstance(context).DeleteANote(note.GetUid(), saved.name);
+                        new File(account.GetRootDirAccount(), Utilities.addMailExt(note.GetUid())).delete();
+                        previouslyCreated = false;
+                    }
+                }
+            }
+        }
         if (!previouslyCreated) save(instrumentation, saved, "", body, null);
         Folder folder = store.getFolder(account.GetImapFolder());
         // Retire only duplicate fixtures left by an interrupted earlier probe.
@@ -174,7 +227,7 @@ public final class NoteSyncProbe {
         try {
             ArrayList<Message> fixtures = new ArrayList<>();
             for (Message message : folder.getMessages()) if (androidTitle.equals(message.getSubject()) &&
-                    NoteMime.html(message).contains("创建并上传 Gmail Notes") &&
+                    (NoteMime.html(message).contains("创建并上传 IMAP Notes") || NoteMime.html(message).contains("创建并上传 Gmail Notes")) &&
                     message.getHeader(NoteMime.UPLOAD_ID) != null) fixtures.add(message);
             if (fixtures.size() > 1) {
                 com.sun.mail.imap.IMAPFolder imap = (com.sun.mail.imap.IMAPFolder) folder;
@@ -202,6 +255,12 @@ public final class NoteSyncProbe {
         File snapshot = File.createTempFile("note-probe-", ".eml", context.getCacheDir());
         try {
             Message original = SyncUtils.ReadMailFromFileRootAndNew(uploaded.GetUid(), account.GetRootDirAccount());
+            folder.open(Folder.READ_ONLY);
+            try {
+                Message remoteBase = ((com.sun.mail.imap.IMAPFolder) folder).getMessageByUID(Long.parseLong(uploaded.GetUid()));
+                result.putBoolean("baseHashMatchesServer", remoteBase != null && NoteMime.hash(original).equals(NoteMime.hash(remoteBase)));
+                instrumentation.sendStatus(2, result);
+            } finally { folder.close(false); }
             Message copy = NoteMime.copy(original);
             copy.setHeader(NoteMime.REPLACES, uploaded.GetUid());
             copy.setHeader(NoteMime.BASE_HASH, NoteMime.hash(original));
@@ -266,11 +325,76 @@ public final class NoteSyncProbe {
         result.putString("repeatSync", "PASS: no duplicate messages");
         existing.clear();
         NotesDb.getInstance(context).GetStoredNotes(existing, saved.name, "date DESC", null);
+        int createRows = 0, downloadRows = 0;
+        for (OneNote note : existing) {
+            if (androidTitle.equals(note.GetTitle())) createRows++;
+            if (remoteTitle.equals(note.GetTitle())) downloadRows++;
+        }
+        if (createRows != 1 || downloadRows != 1) throw new IllegalStateException("Duplicate synthetic local cache rows");
+        result.putString("localCache", "PASS: one cached row per test note after repeat sync");
         for (OneNote note : existing) if (note.GetTitle().startsWith("ImapNotes3 UI smoke test ")) {
             if (note.GetUid().startsWith("-")) throw new IllegalStateException("UI save still pending");
             verifyRemote(folder, note.GetTitle(), "Saved through the editor");
             result.putString("uiSave", "PASS: editor UI save uploaded with matching content");
         }
         result.putString("createdTestNotes", androidTitle + "; " + remoteTitle);
+    }
+
+    private static void qqRoundtripWithOrdinaryDraft(Instrumentation test, Account saved,
+                                                     ImapNotesAccount account, Store store, Bundle result) throws Exception {
+        com.sun.mail.imap.IMAPFolder folder = (com.sun.mail.imap.IMAPFolder) store.getFolder(account.GetImapFolder());
+        String marker = java.util.UUID.randomUUID().toString();
+        String title = "ImapNotes3 ordinary draft isolation test";
+        MimeMessage ordinary = new MimeMessage(Session.getInstance(new Properties()));
+        ordinary.setSubject(title);
+        ordinary.setHeader("X-ImapNotes3-Isolation-Test", marker);
+        ordinary.setText("Synthetic ordinary draft, never a note", "UTF-8");
+        ordinary.saveChanges();
+        folder.appendMessages(new Message[]{ordinary});
+        try {
+            roundtrip(test, saved, account, store, result);
+            ArrayList<OneNote> notes = new ArrayList<>();
+            NotesDb.getInstance(test.getTargetContext()).GetStoredNotes(notes, saved.name, "date DESC", null);
+            for (OneNote note : notes) if (title.equals(note.GetTitle()))
+                throw new IllegalStateException("Ordinary draft appeared as a note");
+            folder.open(Folder.READ_ONLY);
+            long uid;
+            try {
+                Message[] matches = folder.search(new HeaderTerm("X-ImapNotes3-Isolation-Test", marker));
+                matches = exactMarker(matches, "X-ImapNotes3-Isolation-Test", marker);
+                if (matches.length != 1 || matches[0].isSet(javax.mail.Flags.Flag.DELETED))
+                    throw new IllegalStateException("Ordinary draft was modified or deleted");
+                uid = folder.getUID(matches[0]);
+            } finally { folder.close(false); }
+            SyncUtils sync = new SyncUtils();
+            try {
+                if (sync.ConnectToRemote(account, test.getTargetContext(), 0xF00D).returnCode != ImapNotesResult.ResultCodeSuccess)
+                    throw new IllegalStateException("Isolation reconnect failed");
+                try { sync.DeleteNote(Long.toString(uid)); throw new IllegalStateException("Ordinary draft delete guard missing"); }
+                catch (javax.mail.MessagingException expected) {
+                    if (!expected.getMessage().contains("ordinary QQ draft")) throw expected;
+                }
+            } finally { sync.DisconnectFromRemote(); }
+            result.putString("ordinaryDraftIsolation", "PASS: ordinary draft excluded, preserved, and protected from note deletion");
+        } finally {
+            if (folder.isOpen()) folder.close(false);
+            folder.open(Folder.READ_WRITE);
+            try {
+                // Remove only this synthetic draft, never any user's drafts or messages.
+                Message[] matches = folder.search(new HeaderTerm("X-ImapNotes3-Isolation-Test", marker));
+                matches = exactMarker(matches, "X-ImapNotes3-Isolation-Test", marker);
+                for (Message message : matches) message.setFlag(javax.mail.Flags.Flag.DELETED, true);
+                if (matches.length > 0) folder.expunge(matches);
+            } finally { folder.close(false); }
+        }
+    }
+
+    private static Message[] exactMarker(Message[] candidates, String header, String marker) throws Exception {
+        ArrayList<Message> found = new ArrayList<>();
+        for (Message message : candidates) {
+            String[] values = message.getHeader(header);
+            if (values != null && marker.equals(values[0])) found.add(message);
+        }
+        return found.toArray(new Message[0]);
     }
 }

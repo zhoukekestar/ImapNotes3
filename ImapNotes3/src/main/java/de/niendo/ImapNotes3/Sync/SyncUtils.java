@@ -79,6 +79,7 @@ public class SyncUtils {
     private Store store;
     private boolean oauth;
     private boolean authenticationFailed;
+    private boolean notesOnly;
     @Nullable
     private IMAPFolder remoteIMAPNotesFolder;
     private String copyImapFolderName;
@@ -334,32 +335,13 @@ public class SyncUtils {
             //res.hasUIDPLUS = ((IMAPStore) store).hasCapability("UIDPLUS");
             //Log.v(TAG, "has UIDPLUS="+res.hasUIDPLUS);
 
-            Folder[] folders = store.getPersonalNamespaces();
-            Folder rootFolder = folders[0];
-            Log.v(TAG, "Personal Namespaces=" + rootFolder.getFullName());
-            // TODO: this the wrong place to make decisions about the name of the notes folder, that
-            // should be done where it is created.
-            String sfolder = ImapFolderName;
-            if (!rootFolder.getFullName().isEmpty()) {
-                char separator = rootFolder.getSeparator();
-                sfolder = rootFolder.getFullName() + separator + ImapFolderName;
-            }
-            // Get UIDValidity
-            remoteIMAPNotesFolder = (IMAPFolder) store.getFolder(sfolder);
-            if (!remoteIMAPNotesFolder.exists()) {
-                if (remoteIMAPNotesFolder.create(Folder.HOLDS_MESSAGES)) {
-                    remoteIMAPNotesFolder.setSubscribed(true);
-                    Log.v(TAG, "Folder was created successfully");
-                    return new ImapNotesResult(ImapNotesResult.ResultCodeImapFolderCreated,
-                            "", remoteIMAPNotesFolder.getUIDValidity());
-                } else {
-                    Exception e = new Exception("ImapFolder on server not found and could not created");
-                    throw new RuntimeException(e);
-                }
-            }
-            return new ImapNotesResult(ImapNotesResult.ResultCodeSuccess,
-                    "",
-                    remoteIMAPNotesFolder.getUIDValidity());
+            NotesFolder.Prepared prepared = NotesFolder.prepare(
+                    (com.sun.mail.imap.IMAPStore) store, server, ImapFolderName);
+            remoteIMAPNotesFolder = prepared.folder;
+            notesOnly = QQNotesScope.applies(server, remoteIMAPNotesFolder.getFullName());
+            return new ImapNotesResult(prepared.created ? ImapNotesResult.ResultCodeImapFolderCreated :
+                    ImapNotesResult.ResultCodeSuccess, "", remoteIMAPNotesFolder.getUIDValidity(),
+                    remoteIMAPNotesFolder.getFullName());
         } catch (Exception e) {
             authenticationFailed = e instanceof javax.mail.AuthenticationFailedException;
             DisconnectFromRemote();
@@ -411,7 +393,7 @@ public class SyncUtils {
                 long result = -1;
                 for (Message candidate : found) {
                     String[] ids = candidate.getHeader(de.niendo.ImapNotes3.Miscs.NoteMime.UPLOAD_ID);
-                    if (!candidate.isSet(Flags.Flag.DELETED) && ids != null && operationId.equals(ids[0]))
+                    if ((!notesOnly || QQNotesScope.isNote(candidate)) && !candidate.isSet(Flags.Flag.DELETED) && ids != null && operationId.equals(ids[0]))
                         result = Math.max(result, remoteIMAPNotesFolder.getUID(candidate));
                 }
                 return result;
@@ -437,19 +419,20 @@ public class SyncUtils {
 
     synchronized private void SaveNoteAndUpdateDatabase(@NonNull File directory,
                                                         @NonNull Message notesMessage,
+                                                        @NonNull Message canonical,
                                                         @NonNull NotesDb storedNotes,
                                                         @NonNull String accountName,
                                                         @NonNull String suid,
                                                         @NonNull String bgColor) throws IOException {
         File outfile = new File(directory, Utilities.addMailExt(suid));
         Log.d(TAG, "SaveNoteAndUpdateDatabase: " + outfile.getCanonicalPath() + " " + accountName);
-        SaveNote(outfile, notesMessage);
+        SaveNote(outfile, canonical);
 
         // Now update or save the metadata about the message
 
         String title = "";
         try {
-            title = de.niendo.ImapNotes3.Miscs.NoteMime.subject(notesMessage);
+            title = de.niendo.ImapNotes3.Miscs.NoteMime.subject(canonical);
         } catch (Exception e) {
             Log.e(TAG, "getSubject failed", e);
         }
@@ -474,6 +457,9 @@ public class SyncUtils {
                 bgColor,
                 OneNote.SAVE_STATE_OK);
 
+        // The server may change INTERNALDATE while canonicalizing an uploaded draft.
+        // Replace the cached row by account and UID, independently of its previous date.
+        storedNotes.DeleteANote(suid, accountName);
         storedNotes.InsertANoteInDb(aNote);
         List<String> tags = ListActivity.searchHTMLTags(directory, suid, Utilities.HASHTAG_PATTERN, true);
         storedNotes.UpdateTags(tags, suid, accountName);
@@ -482,6 +468,13 @@ public class SyncUtils {
     synchronized boolean handleRemoteNotes(@NonNull File rootFolderAccount,
                                            @NonNull NotesDb storedNotes,
                                            @NonNull String accountName)
+            throws MessagingException, IOException {
+        return handleRemoteNotes(rootFolderAccount, storedNotes, accountName, false);
+    }
+
+    synchronized boolean handleRemoteNotes(@NonNull File rootFolderAccount,
+                                           @NonNull NotesDb storedNotes,
+                                           @NonNull String accountName, boolean refreshCanonical)
             throws MessagingException, IOException {
         assert remoteIMAPNotesFolder != null;
         Log.d(TAG, "handleRemoteNotes: " + remoteIMAPNotesFolder.getFullName() + " " + accountName);
@@ -505,6 +498,7 @@ public class SyncUtils {
             Message[] notesMessages = remoteIMAPNotesFolder.getMessagesByUID(1, UIDFolder.LASTUID);
             for (int index = notesMessages.length - 1; index >= 0; index--) {
                     notesMessage = notesMessages[index];
+                    if (notesOnly && !QQNotesScope.isNote(notesMessage)) continue;
                     long uid = remoteIMAPNotesFolder.getUID(notesMessage);
                     // Get FLAGS
                     //flags = notesMessage.getFlags();
@@ -516,10 +510,11 @@ public class SyncUtils {
                         uids.add(remoteIMAPNotesFolder.getUID(notesMessage));
                     }
                     String suid = Long.toString(uid);
-                    if (!deleted && (!localListOfNotes.contains(suid) ||
+                    if (!deleted && (refreshCanonical || !localListOfNotes.contains(suid) ||
                             storedNotes.GetSaveState(suid, accountName).equals(OneNote.SAVE_STATE_SYNCING))) {
-                        String bgColor = HtmlNote.GetNoteFromMessage(notesMessage).color;
-                        SaveNoteAndUpdateDatabase(rootFolderAccount, notesMessage, storedNotes, accountName, suid, bgColor);
+                        Message canonical = notesOnly ? de.niendo.ImapNotes3.Miscs.NoteMime.copy(notesMessage) : notesMessage;
+                        String bgColor = HtmlNote.GetNoteFromMessage(canonical).color;
+                        SaveNoteAndUpdateDatabase(rootFolderAccount, notesMessage, canonical, storedNotes, accountName, suid, bgColor);
                         result = true;
                     }
             }
@@ -576,13 +571,15 @@ public class SyncUtils {
             // TODO: explain why we enumerate the messages in descending order of index.
             for (int index = notesMessages.length - 1; index >= 0; index--) {
                 Message notesMessage = notesMessages[index];
+                if (notesOnly && !QQNotesScope.isNote(notesMessage)) continue;
                 if (notesMessage.isSet(Flags.Flag.DELETED)) continue;
                 // write every message in files/{accountname} directory
                 // filename is the original message uid
                 long UIDM = remoteIMAPNotesFolder.getUID(notesMessage);
                 String suid = Long.toString(UIDM);
-                String bgColor = HtmlNote.GetNoteFromMessage(notesMessage).color;
-                SaveNoteAndUpdateDatabase(RootDirAccount, notesMessage, storedNotes, account.name, suid, bgColor);
+                Message canonical = notesOnly ? de.niendo.ImapNotes3.Miscs.NoteMime.copy(notesMessage) : notesMessage;
+                String bgColor = HtmlNote.GetNoteFromMessage(canonical).color;
+                SaveNoteAndUpdateDatabase(RootDirAccount, notesMessage, canonical, storedNotes, account.name, suid, bgColor);
             }
         }
     }
@@ -595,6 +592,8 @@ public class SyncUtils {
             OpenRemoteIMAPNotesFolder(Folder.READ_WRITE);
             Message old = remoteIMAPNotesFolder.getMessageByUID(numMessage);
             if (old == null) return;
+            if (notesOnly && !QQNotesScope.isNote(old))
+                throw new MessagingException("Refusing to delete an ordinary QQ draft");
             Message[] msgs = {old};
 
             Folder saveFolder;

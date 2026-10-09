@@ -24,6 +24,7 @@
 package de.niendo.ImapNotes3.Miscs;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 
 public class ImapNotesResult {
 
@@ -36,13 +37,21 @@ public class ImapNotesResult {
     @NonNull
     public final String errorMessage;
     public final Long UIDValidity;
+    @Nullable
+    public final String imapFolderName;
 
     public ImapNotesResult(int returnCode,
                            String errorMessage,
                            long UIDValidity) {
+        this(returnCode, errorMessage, UIDValidity, null);
+    }
+
+    public ImapNotesResult(int returnCode, String errorMessage, long UIDValidity,
+                           @Nullable String imapFolderName) {
         this.returnCode = returnCode;
         this.errorMessage = errorMessage;
         this.UIDValidity = UIDValidity;
+        this.imapFolderName = imapFolderName;
     }
 
 }

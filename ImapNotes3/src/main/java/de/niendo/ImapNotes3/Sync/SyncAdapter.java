@@ -169,6 +169,19 @@ class SyncAdapter extends AbstractThreadedSyncAdapter {
 
 
 
+        // Refresh pre-fix QQ caches once before they become the base of another edit.
+        android.content.SharedPreferences cachePreferences = applicationContext.getSharedPreferences(
+                ImapNotes3.RemoveReservedChars(accountArg.name), Context.MODE_PRIVATE);
+        if (QQNotesScope.applies(account.server, account.GetImapFolder()) &&
+                cachePreferences.getInt("CanonicalDraftCacheVersion", 0) < 1) {
+            try {
+                syncUtils.handleRemoteNotes(account.GetRootDirAccount(), storedNotes, accountArg.name, true);
+                cachePreferences.edit().putInt("CanonicalDraftCacheVersion", 1).apply();
+            } catch (MessagingException | IOException error) {
+                throw new IllegalStateException("Cannot refresh canonical QQ notes; local changes retained", error);
+            }
+        }
+
         // Send new local messages to remote, move them to local folder
         // and update uids in database
         boolean isChanged = handleNewNotes();
@@ -324,11 +337,13 @@ class SyncAdapter extends AbstractThreadedSyncAdapter {
                 try {
                     storedNotes.InsertANoteInDb(new OneNote(message.getSubject(),
                             Utilities.internalDateFormat.format(new java.util.Date()), newuid,
-                            account.accountName, HtmlNote.GetNoteFromMessage(message).color, OneNote.SAVE_STATE_OK));
+                            account.accountName, HtmlNote.GetNoteFromMessage(message).color, OneNote.SAVE_STATE_SYNCING));
                 } catch (MessagingException e) { throw new IllegalStateException(e); }
                 List<String> tags = ListActivity.searchHTMLTags(accountDir, newuid, Utilities.HASHTAG_PATTERN, true);
                 storedNotes.UpdateTags(tags, newuid, account.accountName);
-                storedNotes.SetSaveState(newuid, OneNote.SAVE_STATE_OK, account.accountName);
+                // Fetch the server's canonical MIME before an edit uses it as its conflict base.
+                // Keep server MIME headers and body as the baseline for the next edit.
+                storedNotes.SetSaveState(newuid, OneNote.SAVE_STATE_SYNCING, account.accountName);
             } else {
                 throw new IllegalStateException("Cannot finalize uploaded note; pending file retained");
             }

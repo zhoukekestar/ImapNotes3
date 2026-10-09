@@ -1,0 +1,15 @@
+INSTRUMENTATION_RESULT: baseHashMatchesServer=true
+INSTRUMENTATION_RESULT: configuredFolder=Drafts
+INSTRUMENTATION_RESULT: create=PASS: local save and pending queue
+INSTRUMENTATION_RESULT: createdTestNotes=ImapNotes3 创建同步测试 1009-083512; ImapNotes3 下载同步测试 1009-085754
+INSTRUMENTATION_RESULT: download=PASS: remote multipart Apple-format note downloaded with Unicode
+INSTRUMENTATION_RESULT: edit=PASS: saved edit, verified replacement, no duplicate
+INSTRUMENTATION_RESULT: localCache=PASS: one cached row per test note after repeat sync
+INSTRUMENTATION_RESULT: localNotes=2
+INSTRUMENTATION_RESULT: notesFolders=Drafts: messages=2, appleNotes=2; 其他文件夹/Notes: messages=0, appleNotes=0
+INSTRUMENTATION_RESULT: ordinaryDraftIsolation=PASS: ordinary draft excluded, preserved, and protected from note deletion
+INSTRUMENTATION_RESULT: passed=true
+INSTRUMENTATION_RESULT: repeatSync=PASS: no duplicate messages
+INSTRUMENTATION_RESULT: result=PASS: roundtrip note folder check
+INSTRUMENTATION_RESULT: upload=PASS: server content, Apple header and unique message
+INSTRUMENTATION_CODE: -1
