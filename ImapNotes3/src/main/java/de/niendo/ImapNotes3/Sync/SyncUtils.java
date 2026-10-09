@@ -388,15 +388,7 @@ public class SyncUtils {
         return UploadTransaction.upload(message, new UploadTransaction.Remote() {
             public long find(String operationId) throws MessagingException {
                 OpenRemoteIMAPNotesFolder(Folder.READ_WRITE);
-                Message[] found = remoteIMAPNotesFolder.search(new javax.mail.search.HeaderTerm(
-                        de.niendo.ImapNotes3.Miscs.NoteMime.UPLOAD_ID, operationId));
-                long result = -1;
-                for (Message candidate : found) {
-                    String[] ids = candidate.getHeader(de.niendo.ImapNotes3.Miscs.NoteMime.UPLOAD_ID);
-                    if ((!notesOnly || QQNotesScope.isNote(candidate)) && !candidate.isSet(Flags.Flag.DELETED) && ids != null && operationId.equals(ids[0]))
-                        result = Math.max(result, remoteIMAPNotesFolder.getUID(candidate));
-                }
-                return result;
+                return UploadIdLookup.find(remoteIMAPNotesFolder, operationId, notesOnly);
             }
             public long append(Message note) throws MessagingException {
                 AppendUID[] ids = sendMessageToRemote(new Message[]{note});
@@ -606,9 +598,8 @@ public class SyncUtils {
                 }
             }
             remoteIMAPNotesFolder.setFlags(msgs, new Flags(Flags.Flag.DELETED), true);
-            if (((com.sun.mail.imap.IMAPStore) store).hasCapability("UIDPLUS"))
-                remoteIMAPNotesFolder.expunge(msgs);
-            // Without UIDPLUS, avoid a global EXPUNGE that would delete unrelated messages.
+            SelectiveExpunge.expunge(remoteIMAPNotesFolder, msgs);
+            // Keep deletion scoped to these messages even if UID EXPUNGE is unavailable.
         }
     }
 

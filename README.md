@@ -4,7 +4,7 @@
 
 在账号设置中点击“选择 Google 账号”，选择系统 microG 中已有的账号，再授权 Gmail 邮箱访问。已支持官方标准 microG，以及官方签名的 Morphe MicroG RE 7.1.1（`app.revanced` 账号）；安装受支持的 microG 时优先选择它。其他改签或未知来源的 GmsCore 不会被自动信任。普通 IMAP 邮箱仍可使用密码或应用专用密码。
 
-QQ 与 163 邮箱只需填写完整邮箱地址和邮箱授权码：自动使用 `imap.qq.com` / `imap.163.com`、端口 `993`、SSL/TLS 和专用笔记文件夹。QQ 默认将笔记存放在 `Drafts` 草稿箱中，仅同步带备忘录标记的笔记，普通草稿不会显示或被当作笔记删除。请先在网页版邮箱设置中开启 IMAP，并生成授权码；授权码填在密码栏，不能使用网页版登录密码。[QQ 官方说明](https://help.mail.qq.com/detail/106/985)。登录时显示加载状态，失败后恢复按钮供重试；服务器配置可在“更多设置”中调整。163 的 IMAP 客户端识别信息也已支持。[账号设置测试](docs/ACCOUNT-SETUP-TEST.md)
+QQ 与 163 邮箱只需填写完整邮箱地址和邮箱授权码：自动使用 `imap.qq.com` / `imap.163.com`、端口 `993`、SSL/TLS 和默认笔记存储位置。163 默认使用独立的 `Notes` 文件夹；QQ 默认将笔记存放在 `Drafts` 草稿箱中，仅同步带备忘录标记的笔记，普通草稿不会显示或被当作笔记删除。请先在网页版邮箱设置中开启 IMAP，并生成授权码；授权码填在密码栏，不能使用网页版登录密码。[QQ 官方说明](https://help.mail.qq.com/detail/106/985)。登录时显示加载状态，失败后恢复按钮供重试；服务器配置可在“更多设置”中调整。163 的 IMAP 客户端识别信息也已支持。[账号设置测试](docs/ACCOUNT-SETUP-TEST.md)
 
 Google 登录还需要在 Google Cloud 的 Google Auth Platform 中创建 **Android OAuth 客户端**，注册包名 `io.github.zhoukekestar.imapnotes3` 和当前 APK 签名证书的 SHA-1。可用 `apksigner verify --print-certs <APK路径>` 获取指纹；debug 和 release 签名需分别注册。测试模式下，将登录账号加入测试用户，并配置 `https://mail.google.com/` 邮箱访问范围。仅安装 microG 不会完成应用注册，Google 会返回 `UNREGISTERED_ON_API_CONSOLE`。[Google 配置文档](https://support.google.com/cloud/answer/15549257)
 
@@ -24,11 +24,11 @@ Release 构建从环境变量读取 `ANDROID_KEYSTORE_PATH`、`ANDROID_KEYSTORE_
 
 GitHub Actions 已包含测试和签名 APK 发布流程。在仓库 Secrets 中配置 `ANDROID_KEYSTORE_BASE64`（签名文件的 Base64）、`ANDROID_KEYSTORE_PASSWORD`、`ANDROID_KEY_ALIAS`、`ANDROID_KEY_PASSWORD`，然后推送版本 tag，或手动运行 Signed APK release 并指定已有 tag。Release 作为预发布提供 APK 与 SHA256SUMS。后续版本必须沿用同一签名密钥。
 
-运行 `scripts/verify-release-apk.sh <APK路径> v1.4.8-microg.5` 检查签名、包名、版本和非调试标记。
+运行 `scripts/verify-release-apk.sh <APK路径> v1.4.8-microg.6` 检查签名、包名、版本和非调试标记。
 
 回归测试覆盖 MIME 往返、附件字节、CID 图片、纯文本转义、原文件写入失败、上传确认丢失、删除重试和冲突判断。既有翻译缺失保留为 lint 警告。microG 登录及 Gmail Notes 创建、修改和双向同步已在独立 Android 15 模拟器验证，物理设备和 Apple 客户端显示仍需分别验证。[发布说明](docs/RELEASE-NOTES.md)
 
-Google 登录的设备复测见 [测试步骤](docs/GOOGLE-LOGIN-TEST.md)，笔记同步与新版界面的验证见 [同步测试记录](docs/NOTES-SYNC-TEST.md)。该测试需要先在应用界面完成授权，检查已保存账号、令牌复用和清除本地缓存后的 Gmail IMAP 重新登录，不打印令牌或邮件内容。
+Google 登录的设备复测见 [测试步骤](docs/GOOGLE-LOGIN-TEST.md)，笔记同步与新版界面的验证见 [同步测试记录](docs/NOTES-SYNC-TEST.md)。该测试需要先在应用界面完成授权，检查已保存账号、令牌复用和清除本地缓存后的 Gmail IMAP 重新登录，不打印令牌或邮件内容。QQ 与 163 的真实账号验证见 [QQ 测试记录](docs/QQ-LOGIN-TEST.md) 和 [163 测试记录](docs/163-LOGIN-TEST.md)。
 
 ---
 

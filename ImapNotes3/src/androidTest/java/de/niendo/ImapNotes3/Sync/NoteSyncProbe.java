@@ -117,8 +117,16 @@ public final class NoteSyncProbe {
                     if ((folder.getType() & Folder.HOLDS_MESSAGES) == 0) continue;
                     folder.open(Folder.READ_ONLY);
                     try {
+                        Message[] messages = folder.getMessages();
+                        javax.mail.FetchProfile headers = new javax.mail.FetchProfile();
+                        headers.add("X-Uniform-Type-Identifier");
+                        headers.add(javax.mail.FetchProfile.Item.FLAGS);
+                        folder.fetch(messages, headers);
+                        int appleNotes = 0;
+                        for (Message message : messages) if (!message.isExpunged() &&
+                                !message.isSet(javax.mail.Flags.Flag.DELETED) && QQNotesScope.isNote(message)) appleNotes++;
                         folders.add(name + ": messages=" + folder.getMessageCount() + ", appleNotes=" +
-                                folder.search(new HeaderTerm("X-Uniform-Type-Identifier", "com.apple.mail-note")).length);
+                                appleNotes);
                     } finally { folder.close(false); }
                 }
                 result.putString("notesFolders", String.join("; ", folders));
@@ -128,6 +136,10 @@ public final class NoteSyncProbe {
             result.putString("result", "PASS: " + mode + " note folder check");
         } catch (Exception error) {
             if (error.getStackTrace().length > 0) result.putString("failureLocation", error.getStackTrace()[0].toString());
+            if (error.getMessage() != null && error.getMessage().contains("Unsafe Login"))
+                result.putString("serverFailure", "NetEase rejected the mailbox connection as Unsafe Login");
+            result.putString("failureTrace", java.util.Arrays.stream(error.getStackTrace()).limit(6)
+                    .map(Object::toString).collect(java.util.stream.Collectors.joining("\n")));
             result.putBoolean("passed", false);
             result.putString("result", "FAIL: " + error.getClass().getSimpleName() +
                     (error instanceof IllegalStateException ? ": " + error.getMessage() : ""));
@@ -226,7 +238,8 @@ public final class NoteSyncProbe {
         folder.open(Folder.READ_WRITE);
         try {
             ArrayList<Message> fixtures = new ArrayList<>();
-            for (Message message : folder.getMessages()) if (androidTitle.equals(message.getSubject()) &&
+            for (Message message : folder.getMessages()) if (!message.isSet(javax.mail.Flags.Flag.DELETED) &&
+                    androidTitle.equals(message.getSubject()) &&
                     (NoteMime.html(message).contains("创建并上传 IMAP Notes") || NoteMime.html(message).contains("创建并上传 Gmail Notes")) &&
                     message.getHeader(NoteMime.UPLOAD_ID) != null) fixtures.add(message);
             if (fixtures.size() > 1) {
@@ -238,7 +251,7 @@ public final class NoteSyncProbe {
                 fixtures.remove(fixtures.size() - 1);
                 Message[] retired = fixtures.toArray(new Message[0]);
                 for (Message message : retired) message.setFlag(javax.mail.Flags.Flag.DELETED, true);
-                imap.expunge(retired);
+                SelectiveExpunge.expunge(imap, retired);
             }
         } finally { folder.close(false); }
         OneNote pending = find(context, saved, androidTitle);
@@ -332,6 +345,21 @@ public final class NoteSyncProbe {
         }
         if (createRows != 1 || downloadRows != 1) throw new IllegalStateException("Duplicate synthetic local cache rows");
         result.putString("localCache", "PASS: one cached row per test note after repeat sync");
+        OneNote acknowledged = find(context, saved, androidTitle);
+        Message replay = SyncUtils.ReadMailFromFileRootAndNew(acknowledged.GetUid(), account.GetRootDirAccount());
+        if (replay == null || replay.getHeader(NoteMime.UPLOAD_ID) == null)
+            throw new IllegalStateException("Acknowledged fixture upload ID missing");
+        SyncUtils retry = new SyncUtils();
+        try {
+            if (retry.ConnectToRemote(account, context, 0xF00D).returnCode != ImapNotesResult.ResultCodeSuccess)
+                throw new IllegalStateException("Upload replay reconnect failed");
+            for (int pass = 0; pass < 3; pass++) {
+                if (!acknowledged.GetUid().equals(Long.toString(retry.uploadNote(replay))))
+                    throw new IllegalStateException("Acknowledged upload was appended again");
+            }
+        } finally { retry.DisconnectFromRemote(); }
+        verifyRemote(folder, androidTitle, "编辑已同步 · 第二版");
+        result.putString("uploadRetry", "PASS: three acknowledged upload replays reuse the same UID without duplicates");
         for (OneNote note : existing) if (note.GetTitle().startsWith("ImapNotes3 UI smoke test ")) {
             if (note.GetUid().startsWith("-")) throw new IllegalStateException("UI save still pending");
             verifyRemote(folder, note.GetTitle(), "Saved through the editor");
