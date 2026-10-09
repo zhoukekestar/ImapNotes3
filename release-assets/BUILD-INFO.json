@@ -1,0 +1,138 @@
+{
+  "commit": "5d15be66f97965be8a13ed0d883d4cc36a8d7db3",
+  "tag": "v1.4.8-microg.8",
+  "version": "1.4.8-microg.8",
+  "versionCode": 10415,
+  "package": "io.github.zhoukekestar.imapnotes3",
+  "minAndroid": "7.1 (API 25)",
+  "built_at_utc": "2026-10-09T10:52:19.287590+00:00",
+  "commands": [
+    "testDebugUnitTest",
+    "lintDebug",
+    "assembleRelease"
+  ],
+  "tests": [
+    {
+      "name": "de.niendo.ImapNotes3.Miscs.GoogleAuthErrorTest",
+      "tests": "7",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    },
+    {
+      "name": "de.niendo.ImapNotes3.Miscs.MailProviderPresetTest",
+      "tests": "4",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    },
+    {
+      "name": "de.niendo.ImapNotes3.Miscs.NoteEditorDocumentTest",
+      "tests": "9",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    },
+    {
+      "name": "de.niendo.ImapNotes3.Miscs.NoteMimeTest",
+      "tests": "16",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    },
+    {
+      "name": "de.niendo.ImapNotes3.Sync.CanonicalImapHashTest",
+      "tests": "1",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    },
+    {
+      "name": "de.niendo.ImapNotes3.Sync.ImapClientIdentityTest",
+      "tests": "2",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    },
+    {
+      "name": "de.niendo.ImapNotes3.Sync.NotesFolderTest",
+      "tests": "8",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    },
+    {
+      "name": "de.niendo.ImapNotes3.Sync.QQNotesScopeTest",
+      "tests": "4",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    },
+    {
+      "name": "de.niendo.ImapNotes3.Sync.SelectiveExpungeTest",
+      "tests": "5",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    },
+    {
+      "name": "de.niendo.ImapNotes3.Sync.UploadIdLookupTest",
+      "tests": "5",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    },
+    {
+      "name": "de.niendo.ImapNotes3.Sync.UploadTransactionTest",
+      "tests": "10",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    }
+  ],
+  "lint": {
+    "Warning": 427
+  },
+  "apk_sha256": "4a59c53f7b22aab02ad5eeb100acfe0f86f19047dbf74f4d60f4b34764fe58e7",
+  "certificate_sha256": "bbd6b00902f05f23cb16e8ef768d86c913fcf31fcb22a79ece65d758e47c1357",
+  "verified": [
+    "71 JVM tests passed with no skipped tests",
+    "lint has no errors",
+    "signed application release build",
+    "APK v2 signature",
+    "package",
+    "versionName",
+    "versionCode",
+    "non-debuggable",
+    "original release certificate"
+  ],
+  "validation_reported_by_requester": {
+    "source_commit": "5d15be66f97965be8a13ed0d883d4cc36a8d7db3",
+    "environment": {
+      "android": "15",
+      "api": 35,
+      "microg": "standard 0.3.17"
+    },
+    "editor_device_checks": {
+      "QQ": 12,
+      "163": 12,
+      "Gmail": 12,
+      "total": 36
+    },
+    "result": "All 36 requester device checks passed on previously authorized real mailboxes",
+    "coverage": [
+      "actual keyboard input",
+      "read-only checkbox protection",
+      "HTML and Markdown saving",
+      "draft recovery after activity recreation",
+      "two production SyncAdapter runs",
+      "remote source round trip and no duplicate notes"
+    ],
+    "verification_document": "docs/EDITOR-TEST.md",
+    "executed_in_cloud": false
+  },
+  "pending_user_validation": [
+    "final release APK independent verification"
+  ],
+  "instrumentation_apk_built_or_delivered": false
+}
