@@ -24,7 +24,7 @@ Release 构建从环境变量读取 `ANDROID_KEYSTORE_PATH`、`ANDROID_KEYSTORE_
 
 GitHub Actions 已包含测试和签名 APK 发布流程。在仓库 Secrets 中配置 `ANDROID_KEYSTORE_BASE64`（签名文件的 Base64）、`ANDROID_KEYSTORE_PASSWORD`、`ANDROID_KEY_ALIAS`、`ANDROID_KEY_PASSWORD`，然后推送版本 tag，或手动运行 Signed APK release 并指定已有 tag。Release 作为预发布提供 APK 与 SHA256SUMS。后续版本必须沿用同一签名密钥。
 
-运行 `scripts/verify-release-apk.sh <APK路径> v1.4.8-microg.6` 检查签名、包名、版本和非调试标记。
+运行 `scripts/verify-release-apk.sh <APK路径> v1.4.8-microg.7` 检查签名、包名、版本和非调试标记。
 
 回归测试覆盖 MIME 往返、附件字节、CID 图片、纯文本转义、原文件写入失败、上传确认丢失、删除重试和冲突判断。既有翻译缺失保留为 lint 警告。microG 登录及 Gmail Notes 创建、修改和双向同步已在独立 Android 15 模拟器验证，物理设备和 Apple 客户端显示仍需分别验证。[发布说明](docs/RELEASE-NOTES.md)
 

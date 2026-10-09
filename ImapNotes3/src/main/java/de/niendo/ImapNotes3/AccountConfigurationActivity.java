@@ -38,7 +38,6 @@ import androidx.annotation.Nullable;
 import androidx.appcompat.app.ActionBar;
 import androidx.appcompat.app.AppCompatDelegate;
 import androidx.appcompat.widget.Toolbar;
-import androidx.core.app.NavUtils;
 
 import android.util.Log;
 import android.view.Menu;
@@ -52,7 +51,6 @@ import android.widget.AdapterView.OnItemSelectedListener;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.CheckBox;
-import android.widget.LinearLayout;
 import android.widget.Spinner;
 import android.widget.TextView;
 
@@ -85,7 +83,7 @@ public class AccountConfigurationActivity extends AccountAuthenticatorActivity i
     @Nullable
     private Account myAccount = null;
     private AccountManager accountManager;
-    private CheckBox googleLogin;
+    private boolean googleLogin;
     private static final int GOOGLE_PICKER = 81;
     private static final int GOOGLE_CONSENT = 82;
     private boolean googleAuthorized;
@@ -99,18 +97,22 @@ public class AccountConfigurationActivity extends AccountAuthenticatorActivity i
     private String lastDetectedDomain = "";
     private String lastAutoServer = "";
     private String lastAutoName = "";
-    private final OnClickListener clickListenerRemove = new View.OnClickListener() {
-        @Override
-        public void onClick(View v) {
-            // Click on Remove Button
-            accountManager.removeAccount(myAccount, null, null, null);
-            ImapNotes3.ShowMessage(R.string.account_removed, accountnameTextView, 3);
-            Intent intent = new Intent();
-            intent.putExtra(ListActivity.EDIT_ITEM_ACCOUNTNAME, GetTextViewText(accountnameTextView));
-            setResult(ListActivity.ResultCodeRemoveAccount, intent);
-            finish();//finishing activity
-        }
-    };
+    private final OnClickListener clickListenerRemove = v ->
+            new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+                    .setTitle(R.string.account_remove_title)
+                    .setMessage(R.string.account_remove_body)
+                    .setNegativeButton(R.string.cancel, null)
+                    .setPositiveButton(R.string.account_remove_button, (dialog, which) -> removeAccount())
+                    .show();
+
+    private void removeAccount() {
+        accountManager.removeAccount(myAccount, null, null, null);
+        ImapNotes3.ShowMessage(R.string.account_removed, accountnameTextView, 3);
+        Intent intent = new Intent();
+        intent.putExtra(ListActivity.EDIT_ITEM_ACCOUNTNAME, GetTextViewText(accountnameTextView));
+        setResult(ListActivity.ResultCodeRemoveAccount, intent);
+        finish();
+    }
     private AppCompatDelegate mDelegate;
     private TextView accountnameTextView;
     private TextView usernameTextView;
@@ -122,17 +124,12 @@ public class AccountConfigurationActivity extends AccountAuthenticatorActivity i
     private TextView copyImapFolderNameTextView;
     private View expandMoreSettings;
 
-    private final View.OnClickListener ClickExpandMoreSettings = l -> showAdvancedSettings();
-
-    private void showAdvancedSettings() {
-        expandMoreSettings.setVisibility(View.GONE);
-         LinearLayout lLayout=findViewById(R.id.ViewExtendedAccountSettings);
-        lLayout.setLayoutParams(new LinearLayout.LayoutParams(
-                        LinearLayout.LayoutParams.FILL_PARENT,
-                        LinearLayout.LayoutParams.WRAP_CONTENT));
-        lLayout.setVisibility(View.VISIBLE);
+    private void setAdvancedSettingsVisible(boolean expanded) {
+        findViewById(R.id.ViewExtendedAccountSettings).setVisibility(expanded ? View.VISIBLE : View.GONE);
+        findViewById(R.id.accountSettingsChevron).setRotation(expanded ? 180 : 0);
+        androidx.core.view.ViewCompat.setStateDescription(expandMoreSettings,
+                getString(expanded ? R.string.account_settings_expanded : R.string.account_settings_collapsed));
     }
-
     private final CheckBox.OnCheckedChangeListener FinishCopyFolderCheckBox = (v, r) -> {
         copyImapFolderNameTextView.setEnabled(v.isChecked());
         if (GetTextViewText(copyImapFolderNameTextView).isEmpty())
@@ -317,7 +314,6 @@ public class AccountConfigurationActivity extends AccountAuthenticatorActivity i
         setResult(ListActivity.ResultCodeNeutral);
         setContentView(R.layout.account_setup);
         getSupportActionBar().setDisplayHomeAsUpEnabled(true);
-        TextView headingTextView = findTextViewById(R.id.heading);
         accountnameTextView = findTextViewById(R.id.accountnameEdit);
         usernameTextView = findTextViewById(R.id.usernameEdit);
         passwordTextView = findTextViewById(R.id.passwordEdit);
@@ -338,6 +334,7 @@ public class AccountConfigurationActivity extends AccountAuthenticatorActivity i
         copyImapFolderNameTextView = findTextViewById(R.id.copyImapFolderName);
         copyImapFolderCheckBox = (CheckBox) findTextViewById(R.id.copyImapFolder);
         copyImapFolderCheckBox.setOnCheckedChangeListener(FinishCopyFolderCheckBox);
+        copyImapFolderNameTextView.setEnabled(copyImapFolderCheckBox.isChecked());
         securitySpinner = findViewById(R.id.securitySpinner);
         List<String> list = Security.Printables(getResources());
         ArrayAdapter<String> dataAdapter = new ArrayAdapter<>
@@ -347,7 +344,9 @@ public class AccountConfigurationActivity extends AccountAuthenticatorActivity i
         securitySpinner.setSelection(Security.SSL_TLS.ordinal());
 
         expandMoreSettings = findViewById(R.id.BtnExpandAccountSettings);
-        expandMoreSettings.setOnClickListener(ClickExpandMoreSettings);
+        expandMoreSettings.setOnClickListener(v -> setAdvancedSettingsVisible(
+                findViewById(R.id.ViewExtendedAccountSettings).getVisibility() != View.VISIBLE));
+        setAdvancedSettingsVisible(false);
 
         Bundle extras = getIntent().getExtras();
         // TODO: find out if extras can be null.
@@ -360,44 +359,16 @@ public class AccountConfigurationActivity extends AccountAuthenticatorActivity i
             }
         }
 
-        LinearLayout layout = findViewById(R.id.buttonsLayout);
-        LinearLayout googleControls = findViewById(R.id.googleAuthControls);
-        googleLogin = new com.google.android.material.checkbox.MaterialCheckBox(this);
         googleAccountType = de.niendo.ImapNotes3.Miscs.GoogleAccountAuth.preferredAccountType(this);
-        googleLogin.setText(R.string.google_login);
-        googleControls.addView(googleLogin);
-        chooseGoogle = new com.google.android.material.button.MaterialButton(this, null,
-                com.google.android.material.R.attr.materialButtonOutlinedStyle);
-        chooseGoogle.setText(R.string.google_choose_account);
-        chooseGoogle.setId(R.id.googleChooseAccount);
-        googleControls.addView(chooseGoogle, new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
+        chooseGoogle = findViewById(R.id.googleChooseAccount);
         chooseGoogle.setOnClickListener(v -> {
             try {
                 startActivityForResult(AccountManager.newChooseAccountIntent(null, null,
                         new String[]{de.niendo.ImapNotes3.Miscs.GoogleAccountAuth.preferredAccountType(this)},
-                        getString(R.string.google_help), null, null, null), GOOGLE_PICKER);
+                        getString(R.string.account_google_choose_body), null, null, null), GOOGLE_PICKER);
             } catch (Exception e) {
                 showGoogleError();
             }
-        });
-        googleLogin.setOnCheckedChangeListener((button, checked) -> {
-            googleAuthorized = false;
-            passwordTextView.setEnabled(!checked);
-            findViewById(R.id.passwordInput).setVisibility(checked ? android.view.View.GONE : android.view.View.VISIBLE);
-            usernameTextView.setEnabled(!checked);
-            serverTextView.setEnabled(!checked);
-            securitySpinner.setEnabled(!checked);
-            portnumTextView.setEnabled(!checked);
-            if (checked) {
-                serverTextView.setText("imap.gmail.com");
-                lastAutoServer = "imap.gmail.com";
-                portnumTextView.setText("993");
-                security = Security.SSL_TLS;
-                securitySpinner.setSelection(security.ordinal());
-            }
-            lastDetectedDomain = "";
-            updateEmailDefaults();
         });
         accountManager = AccountManager.get(getApplicationContext());
         Account[] accounts = accountManager.getAccountsByType(Utilities.PackageName);
@@ -415,11 +386,10 @@ public class AccountConfigurationActivity extends AccountAuthenticatorActivity i
 
         if (action == Actions.EDIT_ACCOUNT) {
             // Here we have to edit an existing account
-            headingTextView.setText(R.string.editAccount);
             accountnameTextView.setText(accountname);
             accountnameTextView.setEnabled(false);
             usernameTextView.setText(GetConfigValue(ConfigurationFieldNames.UserName));
-            googleLogin.setChecked("google".equals(GetConfigValue(ConfigurationFieldNames.Authentication)));
+            setGoogleMode("google".equals(GetConfigValue(ConfigurationFieldNames.Authentication)));
             String savedGoogleType = GetConfigValue(ConfigurationFieldNames.GoogleAccountType);
             googleAccountType = savedGoogleType == null || savedGoogleType.isEmpty() ?
                     de.niendo.ImapNotes3.Miscs.GoogleAccountAuth.ACCOUNT_TYPE : savedGoogleType;
@@ -437,50 +407,31 @@ public class AccountConfigurationActivity extends AccountAuthenticatorActivity i
             String myTempStr = GetConfigValue(ConfigurationFieldNames.copyImapFolder);
             copyImapFolderCheckBox.setChecked(myTempStr != null && myTempStr.equals("true") && !(GetConfigValue(ConfigurationFieldNames.copyImapFolderName).isEmpty()));
 
-            Button buttonAbort = secondaryButton();
-            buttonAbort.setId(R.id.accountCancelButton);
-            buttonAbort.setText(R.string.cancel);
-            Log.d(TAG, "Set onclick listener abort");
-            buttonAbort.setOnClickListener(clickListenerAbort);
-            layout.addView(buttonAbort);
-            Button buttonRemove = secondaryButton();
-            deleteButton = buttonRemove;
-            buttonRemove.setText(R.string.delete);
-            buttonRemove.setTextColor(getColor(R.color.syncError));
-            buttonRemove.setOnClickListener(clickListenerRemove);
-            layout.addView(buttonRemove);
-            Button buttonSave = new com.google.android.material.button.MaterialButton(this);
-            actionButton = buttonSave;
-            buttonSave.setId(R.id.accountLoginButton);
-            buttonSave.setText(R.string.save);
-            Log.d(TAG, "Set onclick listener save");
-            buttonSave.setOnClickListener(clickListenerSave);
-            layout.addView(buttonSave);
-        } else {
-            Button buttonAbort = secondaryButton();
-            buttonAbort.setId(R.id.accountCancelButton);
-            buttonAbort.setText(R.string.cancel);
-            Log.d(TAG, "Set onclick listener abort");
-            buttonAbort.setOnClickListener(clickListenerAbort);
-            layout.addView(buttonAbort);
-            // Here we have to create a new account
-            Button buttonView = new com.google.android.material.button.MaterialButton(this);
-            actionButton = buttonView;
-            buttonView.setId(R.id.accountLoginButton);
-            buttonView.setText(R.string.check_and_create_account);
-            Log.d(TAG, "Set onclick listener login");
-            buttonView.setOnClickListener(clickListenerLogin);
-            layout.addView(buttonView);
         }
-        layout.removeView(actionButton);
-        layout.addView(actionButton, 0);
-
+        getSupportActionBar().setTitle(action == Actions.EDIT_ACCOUNT
+                ? R.string.account_settings_title : R.string.account_add_title);
+        actionButton = findViewById(R.id.accountLoginButton);
+        actionButton.setText(action == Actions.EDIT_ACCOUNT ? R.string.account_save_button : R.string.account_connect_button);
+        actionButton.setOnClickListener(action == Actions.EDIT_ACCOUNT ? clickListenerSave : clickListenerLogin);
+        findViewById(R.id.accountCancelButton).setOnClickListener(clickListenerAbort);
+        deleteButton = findViewById(R.id.removeAccountButton);
+        deleteButton.setOnClickListener(clickListenerRemove);
+        findViewById(R.id.removeAccountSection).setVisibility(action == Actions.EDIT_ACCOUNT ? View.VISIBLE : View.GONE);
+        findViewById(R.id.useEmailLogin).setOnClickListener(v -> setGoogleMode(false));
+        passwordTextView.setOnEditorActionListener((view, id, event) -> {
+            if (id == android.view.inputmethod.EditorInfo.IME_ACTION_DONE) {
+                CheckNameAndLogIn();
+                return true;
+            }
+            return false;
+        });
         if (savedInstanceState != null) {
             googleAccountType = savedInstanceState.getString("googleAccountType", googleAccountType);
-            googleLogin.setChecked(savedInstanceState.getBoolean("googleLogin", googleLogin.isChecked()));
+            setGoogleMode(savedInstanceState.getBoolean("googleLogin", googleLogin));
             lastAutoServer = savedInstanceState.getString("lastAutoServer", "");
             lastDetectedDomain = savedInstanceState.getString("lastDetectedDomain", "");
             lastAutoName = savedInstanceState.getString("lastAutoName", "");
+            setAdvancedSettingsVisible(savedInstanceState.getBoolean("advancedSettings", false));
         } else {
             lastDetectedDomain = MailProviderPreset.domainOf(GetTextViewText(usernameTextView));
             MailProviderPreset preset = MailProviderPreset.forEmail(GetTextViewText(usernameTextView));
@@ -496,26 +447,22 @@ public class AccountConfigurationActivity extends AccountAuthenticatorActivity i
             @Override public void onTextChanged(CharSequence s, int start, int before, int count) {}
             @Override public void afterTextChanged(Editable text) { updateProviderHints(); }
         });
+        folderTextView.addTextChangedListener(new TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+            @Override public void onTextChanged(CharSequence s, int start, int before, int count) {}
+            @Override public void afterTextChanged(Editable text) { updateSettingsSummary(); }
+        });
         findViewById(R.id.authorizationHelp).setOnClickListener(v -> showAuthorizationHelp());
         updateEmailDefaults();
 
         // Don't display keyboard when on note detail, only if user touches the screen
         getWindow().setSoftInputMode(
-                WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN
+                WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN | WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE
         );
     }
 
     private TextView findTextViewById(int id) {
         return findViewById(id);
-    }
-
-    private Button secondaryButton() {
-        com.google.android.material.button.MaterialButton button =
-                new com.google.android.material.button.MaterialButton(this);
-        button.setBackgroundTintList(android.content.res.ColorStateList.valueOf(android.graphics.Color.TRANSPARENT));
-        button.setTextColor(getColor(R.color.accent));
-        button.setElevation(0);
-        return button;
     }
 
     private String GetConfigValue(@NonNull String name) {
@@ -534,8 +481,26 @@ public class AccountConfigurationActivity extends AccountAuthenticatorActivity i
         return findViewById(id);
     }
 
+    private void setGoogleMode(boolean enabled) {
+        googleLogin = enabled;
+        googleAuthorized = false;
+        passwordTextView.setEnabled(!enabled);
+        usernameTextView.setEnabled(!enabled);
+        serverTextView.setEnabled(!enabled);
+        securitySpinner.setEnabled(!enabled);
+        portnumTextView.setEnabled(!enabled);
+        if (enabled) {
+            serverTextView.setText("imap.gmail.com");
+            lastAutoServer = "imap.gmail.com";
+            portnumTextView.setText("993");
+            security = Security.SSL_TLS;
+            securitySpinner.setSelection(security.ordinal());
+        }
+        lastDetectedDomain = "";
+        updateEmailDefaults();
+    }
+
     private void updateEmailDefaults() {
-        if (googleLogin == null) return;
         String email = GetTextViewText(usernameTextView);
         MailProviderPreset preset = MailProviderPreset.forEmail(email);
         String domain = MailProviderPreset.domainOf(email);
@@ -544,7 +509,7 @@ public class AccountConfigurationActivity extends AccountAuthenticatorActivity i
             lastAutoName = email;
             accountnameTextView.setText(email);
         }
-        if (!googleLogin.isChecked() && !domain.isEmpty() && !domain.equals(lastDetectedDomain)) {
+        if (!googleLogin && !domain.isEmpty() && !domain.equals(lastDetectedDomain)) {
             String server = GetTextViewText(serverTextView);
             if (server.isEmpty() || server.equals(lastAutoServer)) {
                 lastAutoServer = preset == null ? SmtpServerNameFinder.getSmtpServerName(email) : preset.server;
@@ -563,13 +528,54 @@ public class AccountConfigurationActivity extends AccountAuthenticatorActivity i
         String domain = MailProviderPreset.domainOf(email);
         MailProviderPreset preset = MailProviderPreset.forEmail(email);
         inputLayout(R.id.passwordInput).setHint(getString(preset == null ? R.string.password : R.string.authorization_code));
-        inputLayout(R.id.passwordInput).setHelperText(preset == null ? null : getString(R.string.authorization_code_hint));
-        findViewById(R.id.authorizationHelp).setVisibility(preset != null && !googleLogin.isChecked() ? View.VISIBLE : View.GONE);
+        inputLayout(R.id.passwordInput).setHelperText(action == Actions.EDIT_ACCOUNT ? getString(R.string.account_keep_password)
+                : preset == null ? null : getString(R.string.authorization_code_hint));
+        findViewById(R.id.authorizationHelp).setVisibility(preset != null && !googleLogin ? View.VISIBLE : View.GONE);
         TextView hint = findViewById(R.id.providerHint);
-        hint.setVisibility(!domain.isEmpty() && !googleLogin.isChecked() ? View.VISIBLE : View.GONE);
+        hint.setVisibility(!domain.isEmpty() && !googleLogin ? View.VISIBLE : View.GONE);
+        updateAccountPresentation(preset);
         String server = GetTextViewText(serverTextView);
         hint.setText(preset == MailProviderPreset.QQ && preset.server.equals(server) ? getString(R.string.qq_notes_storage_hint) : preset != null && preset.server.equals(server) ? getString(R.string.provider_configured, preset.label)
                 : getString(server.equals(lastAutoServer) ? R.string.server_configured : R.string.server_custom_configured));
+    }
+
+    private void updateAccountPresentation(MailProviderPreset preset) {
+        boolean google = googleLogin;
+        boolean editing = action == Actions.EDIT_ACCOUNT;
+        boolean canChooseGoogle = !editing || google || GetTextViewText(serverTextView).equals("imap.gmail.com");
+        findViewById(R.id.googleAuthControls).setVisibility(canChooseGoogle ? View.VISIBLE : View.GONE);
+        findViewById(R.id.emailDivider).setVisibility(!editing && !google ? View.VISIBLE : View.GONE);
+        findViewById(R.id.usernameInput).setVisibility(google ? View.GONE : View.VISIBLE);
+        findViewById(R.id.passwordInput).setVisibility(google ? View.GONE : View.VISIBLE);
+        findViewById(R.id.googleSelectedAccount).setVisibility(google ? View.VISIBLE : View.GONE);
+        findViewById(R.id.useEmailLogin).setVisibility(google ? View.VISIBLE : View.GONE);
+        chooseGoogle.setText(google ? R.string.account_google_change : R.string.account_google_continue);
+        ((TextView) findViewById(R.id.googleSelectedEmail)).setText(GetTextViewText(usernameTextView));
+        ((TextView) findViewById(R.id.credentialsTitle)).setText(google ? R.string.account_google_title
+                : editing ? R.string.account_login_details : R.string.account_email_login);
+        TextView subtitle = findViewById(R.id.credentialsSubtitle);
+        subtitle.setText(google ? R.string.account_google_no_password : R.string.account_email_support);
+        subtitle.setVisibility(google || !editing ? View.VISIBLE : View.GONE);
+        if (editing) {
+            String label = google ? "Google" : preset != null ? preset.label : "";
+            ((TextView) findViewById(R.id.heading)).setText(google ? getString(R.string.account_google_title)
+                    : label.isEmpty() ? getString(R.string.account_generic_provider)
+                    : getString(R.string.account_mail_provider, label));
+            ((TextView) findViewById(R.id.accountSubtitle)).setText(GetTextViewText(usernameTextView));
+            android.widget.ImageView icon = findViewById(R.id.accountHeaderIcon);
+            icon.setImageResource(google ? R.drawable.ic_google : R.drawable.ic_account_mail);
+            icon.setBackgroundResource(R.drawable.account_icon_background);
+            int padding = Math.round(14 * getResources().getDisplayMetrics().density);
+            icon.setPadding(padding, padding, padding, padding);
+        }
+        updateSettingsSummary();
+    }
+
+    private void updateSettingsSummary() {
+        if (action == Actions.EDIT_ACCOUNT) {
+            ((TextView) findViewById(R.id.accountSettingsSummary)).setText(getString(R.string.account_sync_summary,
+                    GetTextViewText(folderTextView), getString(syncInterval.textID)));
+        }
     }
 
     private void showAuthorizationHelp() {
@@ -597,23 +603,23 @@ public class AccountConfigurationActivity extends AccountAuthenticatorActivity i
             });
         }
         actionButton.setText(busy ? (stage == R.string.login_google ? R.string.login_authorizing_button : R.string.login_connecting_button)
-                : (action == Actions.EDIT_ACCOUNT ? R.string.save : R.string.check_and_create_account));
+                : (action == Actions.EDIT_ACCOUNT ? R.string.account_save_button : R.string.account_connect_button));
         actionButton.setEnabled(!busy);
         if (deleteButton != null) deleteButton.setEnabled(!busy);
         chooseGoogle.setEnabled(!busy);
-        googleLogin.setEnabled(!busy);
         expandMoreSettings.setEnabled(!busy);
         accountnameTextView.setEnabled(!busy && action != Actions.EDIT_ACCOUNT);
-        usernameTextView.setEnabled(!busy && !googleLogin.isChecked());
-        passwordTextView.setEnabled(!busy && !googleLogin.isChecked());
-        serverTextView.setEnabled(!busy && !googleLogin.isChecked());
-        portnumTextView.setEnabled(!busy && !googleLogin.isChecked());
-        securitySpinner.setEnabled(!busy && !googleLogin.isChecked());
+        usernameTextView.setEnabled(!busy && !googleLogin);
+        passwordTextView.setEnabled(!busy && !googleLogin);
+        serverTextView.setEnabled(!busy && !googleLogin);
+        portnumTextView.setEnabled(!busy && !googleLogin);
+        securitySpinner.setEnabled(!busy && !googleLogin);
         syncIntervalSpinner.setEnabled(!busy);
         folderTextView.setEnabled(!busy);
         copyImapFolderCheckBox.setEnabled(!busy);
         copyImapFolderNameTextView.setEnabled(!busy && copyImapFolderCheckBox.isChecked());
         findViewById(R.id.authorizationHelp).setEnabled(!busy);
+        findViewById(R.id.useEmailLogin).setEnabled(!busy);
     }
 
     // DoLogin method is defined in account_selection.xml (account_selection layout)
@@ -627,7 +633,7 @@ public class AccountConfigurationActivity extends AccountAuthenticatorActivity i
             return;
         }
 
-        if (googleLogin.isChecked() && !googleAuthorized) {
+        if (googleLogin && !googleAuthorized) {
             if (googleAuthorizationPending) return;
             googleAuthorizationPending = true;
             setLoginLoading(R.string.login_google);
@@ -646,7 +652,7 @@ public class AccountConfigurationActivity extends AccountAuthenticatorActivity i
         }
 
         if (GetTextViewText(serverTextView).isEmpty()) {
-            showAdvancedSettings();
+            setAdvancedSettingsVisible(true);
             serverTextView.setError(getString(R.string.login_server_required));
             return;
         }
@@ -654,13 +660,13 @@ public class AccountConfigurationActivity extends AccountAuthenticatorActivity i
         try { port = Integer.parseInt(GetTextViewText(portnumTextView)); }
         catch (NumberFormatException error) { port = 0; }
         if (port < 1 || port > 65535) {
-            showAdvancedSettings();
+            setAdvancedSettingsVisible(true);
             portnumTextView.setError(getString(R.string.login_port_invalid));
             return;
         }
         //password will not shown if account is edit and have to be loaded;
         String password = GetTextViewText(passwordTextView);
-        if (!googleLogin.isChecked() && (action == Actions.EDIT_ACCOUNT) && (password.isEmpty())) {
+        if (!googleLogin && (action == Actions.EDIT_ACCOUNT) && (password.isEmpty())) {
             // Server name edited: new password required (avoid password spoofing)
             if (GetTextViewText(serverTextView).equals(GetConfigValue(ConfigurationFieldNames.Server))) {
                 password = accountManager.getPassword(myAccount);
@@ -669,7 +675,7 @@ public class AccountConfigurationActivity extends AccountAuthenticatorActivity i
                 return;
             }
         }
-        if (!googleLogin.isChecked() && (password == null || password.isEmpty())) {
+        if (!googleLogin && (password == null || password.isEmpty())) {
             inputLayout(R.id.passwordInput).setError(getString(R.string.login_password_required));
             return;
         }
@@ -685,7 +691,7 @@ public class AccountConfigurationActivity extends AccountAuthenticatorActivity i
                 GetTextViewText(folderTextView),
                 GetTextViewText(copyImapFolderNameTextView),
                 GetCheckBoxValue(copyImapFolderCheckBox));
-        ImapNotesAccount.googleOAuth = googleLogin.isChecked();
+        ImapNotesAccount.googleOAuth = googleLogin;
         ImapNotesAccount.googleAccountType = googleAccountType;
         // No need to check for valid numbers because the field only allows digits.  But it is
         // possible to remove all characters which causes the program to crash.  The easiest fix is
@@ -716,10 +722,11 @@ public class AccountConfigurationActivity extends AccountAuthenticatorActivity i
     @Override
     protected void onSaveInstanceState(Bundle state) {
         state.putString("googleAccountType", googleAccountType);
-        state.putBoolean("googleLogin", googleLogin.isChecked());
+        state.putBoolean("googleLogin", googleLogin);
         state.putString("lastAutoServer", lastAutoServer);
         state.putString("lastDetectedDomain", lastDetectedDomain);
         state.putString("lastAutoName", lastAutoName);
+        state.putBoolean("advancedSettings", findViewById(R.id.ViewExtendedAccountSettings).getVisibility() == View.VISIBLE);
         super.onSaveInstanceState(state);
     }
 
@@ -732,14 +739,14 @@ public class AccountConfigurationActivity extends AccountAuthenticatorActivity i
             if (email != null && de.niendo.ImapNotes3.Miscs.GoogleAccountAuth.supportedAccountType(type)) {
                 googleAccountType = type;
                 usernameTextView.setText(email);
-                googleLogin.setChecked(true);
+                setGoogleMode(true);
                 googleAuthorized = false;
             }
         } else if (requestCode == GOOGLE_CONSENT) {
             googleAuthorizationPending = false;
             setLoginLoading(0);
             if (resultCode == RESULT_OK) {
-                googleLogin.setChecked(true);
+                setGoogleMode(true);
                 googleAuthorized = false;
                 DoLogin();
             }
@@ -752,7 +759,7 @@ public class AccountConfigurationActivity extends AccountAuthenticatorActivity i
 
     public boolean onOptionsItemSelected(@NonNull MenuItem item) {
         if (item.getItemId() == android.R.id.home) {
-            NavUtils.navigateUpFromSameTask(this);
+            finish();
             return true;
         }
         return super.onOptionsItemSelected(item);
@@ -762,6 +769,7 @@ public class AccountConfigurationActivity extends AccountAuthenticatorActivity i
     public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
         if (parent.getId() == R.id.syncintervalSpinner) {
             syncInterval = SyncInterval.from(position);
+            updateSettingsSummary();
         } else if ( (parent.getId() == R.id.securitySpinner)) {
             if (!security.equals(Security.from(position))) {
                 security = Security.from(position);

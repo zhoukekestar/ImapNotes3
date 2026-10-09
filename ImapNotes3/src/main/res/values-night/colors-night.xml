@@ -19,6 +19,7 @@
     <color name="onAccent">#30220C</color>
     <color name="secondaryText">#B4AEA4</color>
     <color name="outline">#423F38</color>
+    <color name="accountFieldOutline">#79736A</color>
     <color name="syncError">#F69C95</color>
 
     <color name="AccountBgColor">#292724</color>

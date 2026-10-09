@@ -13,11 +13,11 @@
     <string name="editor_hint">记下一个想法、计划或提醒…</string>
     <string name="email_address">邮箱地址</string>
     <string name="more_account_settings">更多设置</string>
-    <string name="provider_configured">已识别 %1$s 邮箱，服务器设置已自动填好。</string>
+    <string name="provider_configured">%1$s 邮箱的服务器配置已填好。</string>
     <string name="server_configured">服务器设置已自动填写，可在“更多设置”中调整。</string>
     <string name="server_custom_configured">正在使用“更多设置”中的自定义服务器配置。</string>
     <string name="authorization_code">邮箱授权码</string>
-    <string name="authorization_code_hint">请先在邮箱设置中开启 IMAP 服务，并在这里填写生成的授权码。</string>
+    <string name="authorization_code_hint">填写邮箱设置中生成的 IMAP 授权码。</string>
     <string name="authorization_code_help">如何获取授权码</string>
     <string name="authorization_code_steps">1. 在浏览器中登录邮箱。\n2. 进入设置，开启 IMAP 服务并生成授权码。\n3. 在 ImapNotes3 填写完整邮箱地址和该授权码。</string>
     <string name="open_mail_help">打开邮箱帮助</string>

@@ -18,7 +18,7 @@
     <string name="server_configured">Server settings have been filled in. You can adjust them in More settings.</string>
     <string name="server_custom_configured">Using your custom server settings in More settings.</string>
     <string name="authorization_code">Email authorization code</string>
-    <string name="authorization_code_hint">Enable IMAP in your mailbox settings and enter its authorization code here.</string>
+    <string name="authorization_code_hint">Enter the IMAP authorization code from your mailbox settings.</string>
     <string name="authorization_code_help">How to get an authorization code</string>
     <string name="authorization_code_steps">1. Sign in to your mailbox in a browser.\n2. Open Settings, enable IMAP service, and generate an authorization code.\n3. Enter your full email address and that code in ImapNotes3.</string>
     <string name="open_mail_help">Open mailbox help</string>

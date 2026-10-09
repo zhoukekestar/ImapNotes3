@@ -1,0 +1,95 @@
+<resources>
+    <string name="account_connect_title">Connect your notes</string>
+    <string name="account_connect_body">Use your email account to keep your notes in sync.</string>
+    <string name="account_add_title">Add account</string>
+    <string name="account_settings_title">Account settings</string>
+    <string name="account_email_login">Sign in with email</string>
+    <string name="account_login_details">Sign-in details</string>
+    <string name="account_email_support">QQ, 163 and other IMAP mailboxes</string>
+    <string name="account_or_email">or use email</string>
+    <string name="account_google_continue">Continue with Google</string>
+    <string name="account_google_change">Change Google account</string>
+    <string name="account_google_selected">Google account selected</string>
+    <string name="account_google_no_password">No password needed</string>
+    <string name="account_google_title">Google account</string>
+    <string name="account_google_choose_body">Choose the Google account you use for your notes.</string>
+    <string name="account_settings_expanded">Expanded</string>
+    <string name="account_settings_collapsed">Collapsed</string>
+    <string name="account_use_email">Use email instead</string>
+    <string name="account_connect_button">Connect and sync</string>
+    <string name="account_save_button">Save changes</string>
+    <string name="account_sync_settings">Sync settings</string>
+    <string name="account_sync_defaults">Set up automatically · Usually no changes needed</string>
+    <string name="account_sync_summary">%1$s · %2$s</string>
+    <string name="account_server_settings">Server connection</string>
+    <string name="account_note_settings">Notes and sync</string>
+    <string name="account_keep_password">Leave blank to keep your saved password or authorization code.</string>
+    <string name="account_mail_provider">%1$s Mail</string>
+    <string name="account_generic_provider">Email account</string>
+    <string name="account_remove_button">Remove this account</string>
+    <string name="account_remove_title">Remove account?</string>
+    <string name="account_remove_body">This removes the account from this device. Your notes in the mailbox are kept.</string>
+    <string name="account_notes_folder">Notes folder</string>
+    <string name="account_backup_folder">Backup folder</string>
+    <string name="account_current">Account</string>
+    <style name="AccountInput" parent="Widget.Material3.TextInputLayout.OutlinedBox">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_marginTop">16dp</item>
+        <item name="boxCornerRadiusTopStart">12dp</item>
+        <item name="boxCornerRadiusTopEnd">12dp</item>
+        <item name="boxCornerRadiusBottomStart">12dp</item>
+        <item name="boxCornerRadiusBottomEnd">12dp</item>
+        <item name="boxStrokeColor">@color/account_input_stroke</item>
+        <item name="hintTextColor">@color/secondaryText</item>
+        <item name="helperTextTextColor">@color/secondaryText</item>
+    </style>
+    <style name="AccountEditText">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:minHeight">56dp</item>
+        <item name="android:textSize">16sp</item>
+        <item name="android:singleLine">true</item>
+        <item name="android:paddingStart">16dp</item>
+        <item name="android:paddingEnd">16dp</item>
+    </style>
+    <style name="AccountPrimaryButton" parent="Widget.Material3.Button">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:minHeight">56dp</item>
+        <item name="android:textSize">16sp</item>
+        <item name="android:textAllCaps">false</item>
+        <item name="android:insetTop">0dp</item>
+        <item name="android:insetBottom">0dp</item>
+        <item name="cornerRadius">16dp</item>
+        <item name="android:elevation">0dp</item>
+    </style>
+    <style name="AccountTextButton" parent="Widget.Material3.Button.TextButton">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:minHeight">48dp</item>
+        <item name="android:textAllCaps">false</item>
+        <item name="android:textSize">14sp</item>
+    </style>
+    <style name="AccountGoogleButton" parent="Widget.Material3.Button.OutlinedButton">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:minHeight">56dp</item>
+        <item name="android:textSize">15sp</item>
+        <item name="android:textAllCaps">false</item>
+        <item name="android:insetTop">0dp</item>
+        <item name="android:insetBottom">0dp</item>
+        <item name="cornerRadius">16dp</item>
+        <item name="backgroundTint">@color/AccountBgColor</item>
+        <item name="android:textColor">@color/ActionTxtColor</item>
+        <item name="strokeColor">@color/outline</item>
+        <item name="iconTint">@null</item>
+    </style>
+    <style name="AccountSectionTitle">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:textSize">16sp</item>
+        <item name="android:fontFamily">sans-serif-medium</item>
+        <item name="android:textColor">@color/ActionTxtColor</item>
+    </style>
+</resources>

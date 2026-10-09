@@ -8,7 +8,6 @@ import android.os.SystemClock;
 import android.view.View;
 import android.view.accessibility.AccessibilityNodeInfo;
 import android.widget.Button;
-import android.widget.CheckBox;
 import android.widget.Spinner;
 import android.widget.TextView;
 import de.niendo.ImapNotes3.AccountConfigurationActivity;
@@ -33,14 +32,16 @@ final class AccountSetupProbe {
             android.accounts.Account[] savedAccounts = accounts.getAccountsByType(Utilities.PackageName);
             int accountCount = savedAccounts.length;
             String googleEmail = null;
+            String googleAccountName = null;
             for (android.accounts.Account saved : savedAccounts) {
                 if ("google".equals(accounts.getUserData(saved, de.niendo.ImapNotes3.Data.ConfigurationFieldNames.Authentication))) {
                     googleEmail = accounts.getUserData(saved, de.niendo.ImapNotes3.Data.ConfigurationFieldNames.UserName);
+                    googleAccountName = saved.name;
                     break;
                 }
             }
             if (googleEmail == null) throw new IllegalStateException("Requires a previously authorized Google account");
-            final String authorizedGoogleEmail = googleEmail;
+            final String authorizedGoogleAccount = googleAccountName;
             activity = (AccountConfigurationActivity) test.startActivitySync(new Intent(test.getTargetContext(), AccountConfigurationActivity.class)
                     .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
             final AccountConfigurationActivity setup = activity;
@@ -67,6 +68,11 @@ final class AccountSetupProbe {
                 text(setup, R.id.usernameEdit).setText("fixture@qq.com");
                 require(text(setup, R.id.serverEdit).getText().toString().equals("imap.custom.example"));
                 text(setup, R.id.serverEdit).setText("127.0.0.1");
+                setup.findViewById(R.id.BtnExpandAccountSettings).performClick();
+                require(setup.findViewById(R.id.ViewExtendedAccountSettings).getVisibility() == View.VISIBLE);
+                setup.findViewById(R.id.BtnExpandAccountSettings).performClick();
+                require(setup.findViewById(R.id.ViewExtendedAccountSettings).getVisibility() == View.GONE);
+                require(text(setup, R.id.serverEdit).getText().toString().equals("127.0.0.1"));
                 setup.findViewById(R.id.BtnExpandAccountSettings).performClick();
                 ((Spinner) setup.findViewById(R.id.securitySpinner)).setSelection(Security.None.ordinal());
             });
@@ -111,22 +117,44 @@ final class AccountSetupProbe {
             require(accountCount == AccountManager.get(test.getTargetContext()).getAccountsByType(Utilities.PackageName).length);
             passed++;
             final AccountConfigurationActivity googleSetup = (AccountConfigurationActivity) test.startActivitySync(
-                    new Intent(test.getTargetContext(), AccountConfigurationActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+                    new Intent(test.getTargetContext(), AccountConfigurationActivity.class)
+                            .putExtra(AccountConfigurationActivity.ACTION, AccountConfigurationActivity.Actions.EDIT_ACCOUNT)
+                            .putExtra(AccountConfigurationActivity.ACCOUNTNAME, authorizedGoogleAccount)
+                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
             activity = googleSetup;
+            screenshot(test, "setup-google-account.png");
+            test.runOnMainSync(() -> googleSetup.findViewById(R.id.removeAccountButton).performClick());
+            dismissDialog(test, "android:id/button2");
+            require(accountCount == AccountManager.get(test.getTargetContext()).getAccountsByType(Utilities.PackageName).length);
+            passed++;
             test.runOnMainSync(() -> {
-                text(googleSetup, R.id.usernameEdit).setText(authorizedGoogleEmail);
-                android.widget.LinearLayout controls = googleSetup.findViewById(R.id.googleAuthControls);
-                ((CheckBox) controls.getChildAt(0)).setChecked(true);
-                googleSetup.findViewById(R.id.accountLoginButton).performClick();
-                require(busy(googleSetup));
-                require(text(googleSetup, R.id.loginProgressText).getText().toString().equals(googleSetup.getString(R.string.login_google)));
-                googleSetup.findViewById(R.id.accountCancelButton).performClick();
+                googleSetup.findViewById(R.id.useEmailLogin).performClick();
+                require(googleSetup.findViewById(R.id.passwordInput).getVisibility() == View.VISIBLE);
+                require(googleSetup.findViewById(R.id.usernameInput).getVisibility() == View.VISIBLE);
+                require(googleSetup.findViewById(R.id.googleAuthControls).getVisibility() == View.VISIBLE);
+                require(text(googleSetup, R.id.usernameEdit).isEnabled());
+            });
+            passed++;
+            test.runOnMainSync(googleSetup::finish);
+            final AccountConfigurationActivity googleLoginSetup = (AccountConfigurationActivity) test.startActivitySync(
+                    new Intent(test.getTargetContext(), AccountConfigurationActivity.class)
+                            .putExtra(AccountConfigurationActivity.ACTION, AccountConfigurationActivity.Actions.EDIT_ACCOUNT)
+                            .putExtra(AccountConfigurationActivity.ACCOUNTNAME, authorizedGoogleAccount)
+                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+            activity = googleLoginSetup;
+            test.runOnMainSync(() -> {
+                require(googleLoginSetup.findViewById(R.id.passwordInput).getVisibility() == View.GONE);
+                require(googleLoginSetup.findViewById(R.id.googleSelectedAccount).getVisibility() == View.VISIBLE);
+                googleLoginSetup.findViewById(R.id.accountLoginButton).performClick();
+                require(busy(googleLoginSetup));
+                require(text(googleLoginSetup, R.id.loginProgressText).getText().toString().equals(googleLoginSetup.getString(R.string.login_google)));
+                googleLoginSetup.findViewById(R.id.accountCancelButton).performClick();
             });
             test.waitForIdleSync();
-            require(googleSetup.isFinishing() || googleSetup.isDestroyed());
+            require(googleLoginSetup.isFinishing() || googleLoginSetup.isDestroyed());
             passed++;
             result.putBoolean("passed", true);
-            result.putString("result", "PASS: QQ/163 defaults, provider switch, custom settings, loading, duplicate-submit guard, error recovery, retry, cancel, Google loading and cancel");
+            result.putString("result", "PASS: QQ/163 defaults, provider switch, custom settings and folding, loading, duplicate-submit guard, error recovery, retry, cancel, removal confirmation, Google/email mode switch, Google loading and cancel");
         } catch (Throwable error) {
             result.putBoolean("passed", false);
             result.putString("result", "FAIL: " + error.getClass().getSimpleName());
@@ -159,12 +187,13 @@ final class AccountSetupProbe {
         }
         throw new AssertionError("Account setup timed out");
     }
-    private static void dismissError(Instrumentation test) {
+    private static void dismissError(Instrumentation test) { dismissDialog(test, "android:id/button1"); }
+    private static void dismissDialog(Instrumentation test, String buttonId) {
         long end = SystemClock.elapsedRealtime() + 10000;
         while (SystemClock.elapsedRealtime() < end) {
             AccessibilityNodeInfo root = test.getUiAutomation().getRootInActiveWindow();
             if (root != null) {
-                java.util.List<AccessibilityNodeInfo> buttons = root.findAccessibilityNodeInfosByViewId("android:id/button1");
+                java.util.List<AccessibilityNodeInfo> buttons = root.findAccessibilityNodeInfosByViewId(buttonId);
                 if (!buttons.isEmpty() && buttons.get(0).performAction(AccessibilityNodeInfo.ACTION_CLICK)) {
                     test.waitForIdleSync(); return;
                 }

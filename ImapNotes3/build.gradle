@@ -18,8 +18,8 @@ android {
     //noinspection GroovyMissingReturnStatement
     defaultConfig {
         applicationId "io.github.zhoukekestar.imapnotes3"
-        versionCode 10413
-        versionName "1.4.8-microg.6"
+        versionCode 10414
+        versionName "1.4.8-microg.7"
         targetSdkVersion 35
         minSdkVersion 25
         testInstrumentationRunner "de.niendo.ImapNotes3.Miscs.GoogleLoginInstrumentation"

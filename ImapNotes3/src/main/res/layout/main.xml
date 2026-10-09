@@ -11,43 +11,61 @@
       android:layout_height="wrap_content"
       android:layout_marginTop="8dp"
       android:padding="12dp"
-      android:background="@drawable/account_card"
+      android:background="@drawable/account_surface"
       android:orientation="vertical"
       app:layout_constraintStart_toStartOf="parent"
       app:layout_constraintEnd_toEndOf="parent"
       app:layout_constraintTop_toTopOf="parent"
       android:layout_marginStart="16dp"
       android:layout_marginEnd="16dp">
-    <TextView
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="@string/notes_library"
-        android:textColor="@color/secondaryText"
-        android:textSize="12sp"
-        android:paddingStart="8dp"
-        android:paddingEnd="8dp" />
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
         android:gravity="center_vertical">
-      <Spinner
-          android:id="@+id/accountSpinner"
+      <ImageView
+          android:layout_width="40dp"
+          android:layout_height="40dp"
+          android:padding="10dp"
+          android:layout_marginStart="4dp"
+          android:background="@drawable/account_icon_background"
+          android:src="@drawable/ic_account_mail"
+          android:importantForAccessibility="no" />
+      <LinearLayout
           android:layout_width="0dp"
-          android:layout_height="48dp"
+          android:layout_height="wrap_content"
           android:layout_weight="1"
-          android:contentDescription="@string/AccountList"
-          android:popupBackground="@color/AccountBgColor" />
+          android:orientation="vertical"
+          android:layout_marginStart="8dp">
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/account_current"
+            android:textColor="@color/secondaryText"
+            android:textSize="11sp"
+            android:paddingStart="8dp"
+            android:paddingEnd="8dp" />
+        <Spinner
+            android:id="@+id/accountSpinner"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:minHeight="48dp"
+            android:contentDescription="@string/AccountList"
+            android:popupBackground="@color/AccountBgColor" />
+      </LinearLayout>
       <ImageButton
           android:id="@+id/editAccountButton"
           android:layout_width="48dp"
           android:layout_height="48dp"
-          android:padding="12dp"
+          android:padding="14dp"
           android:background="?attr/selectableItemBackgroundBorderless"
           android:src="@drawable/ic_action_settings"
-          android:contentDescription="@string/editAccount"
+          android:contentDescription="@string/account_settings_title"
           app:tint="@color/secondaryText" />
     </LinearLayout>
+    <View android:layout_width="match_parent" android:layout_height="1dp"
+        android:background="@color/outline" android:layout_marginStart="8dp" android:layout_marginEnd="8dp"
+        android:layout_marginTop="8dp" />
     <TextView
         android:id="@+id/syncStatus"
         android:layout_width="match_parent"
@@ -56,7 +74,7 @@
         android:gravity="center_vertical"
         android:text="@string/sync_ready"
         android:textColor="@color/secondaryText"
-        android:textSize="13sp"
+        android:textSize="12sp"
         android:background="?attr/selectableItemBackground"
         android:paddingStart="8dp"
         android:paddingEnd="8dp" />

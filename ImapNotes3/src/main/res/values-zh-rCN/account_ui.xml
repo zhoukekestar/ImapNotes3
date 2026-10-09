@@ -1,0 +1,35 @@
+<resources>
+    <string name="account_connect_title">连接你的笔记</string>
+    <string name="account_connect_body">登录邮箱，让笔记在不同设备间同步。</string>
+    <string name="account_add_title">添加账号</string>
+    <string name="account_settings_title">账号设置</string>
+    <string name="account_email_login">邮箱登录</string>
+    <string name="account_login_details">登录信息</string>
+    <string name="account_email_support">支持 QQ、163 及其他 IMAP 邮箱</string>
+    <string name="account_or_email">或使用邮箱登录</string>
+    <string name="account_google_continue">使用 Google 账号继续</string>
+    <string name="account_google_change">切换 Google 账号</string>
+    <string name="account_google_selected">已选择 Google 账号</string>
+    <string name="account_google_no_password">无需填写密码</string>
+    <string name="account_google_title">Google 账号</string>
+    <string name="account_google_choose_body">选择用于同步笔记的 Google 账号。</string>
+    <string name="account_settings_expanded">已展开</string>
+    <string name="account_settings_collapsed">已收起</string>
+    <string name="account_use_email">改用邮箱登录</string>
+    <string name="account_connect_button">连接并同步</string>
+    <string name="account_save_button">保存修改</string>
+    <string name="account_sync_settings">同步设置</string>
+    <string name="account_sync_defaults">已自动配置，通常无需更改</string>
+    <string name="account_sync_summary">%1$s · %2$s</string>
+    <string name="account_server_settings">服务器连接</string>
+    <string name="account_note_settings">笔记与同步</string>
+    <string name="account_keep_password">留空即可保留已保存的密码或授权码。</string>
+    <string name="account_mail_provider">%1$s 邮箱</string>
+    <string name="account_generic_provider">邮箱账号</string>
+    <string name="account_remove_button">移除此账号</string>
+    <string name="account_remove_title">移除账号？</string>
+    <string name="account_remove_body">仅从此设备移除账号，邮箱中的笔记会保留。</string>
+    <string name="account_notes_folder">笔记文件夹</string>
+    <string name="account_backup_folder">备份文件夹</string>
+    <string name="account_current">当前账号</string>
+</resources>

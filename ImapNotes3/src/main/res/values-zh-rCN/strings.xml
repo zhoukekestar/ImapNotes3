@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="qq_notes_storage_hint">已配置 QQ 邮箱。笔记存放在草稿箱中，仅同步笔记，不影响普通草稿。</string>
+    <string name="qq_notes_storage_hint">笔记同步到 QQ 草稿箱，普通草稿不受影响。</string>
     <string name="app_name" translatable="false">ImapNotes3</string>
     <string name="new_account">新账户</string>
     <string name="new_note">新笔记</string>
